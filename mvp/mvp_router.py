@@ -46,6 +46,7 @@ def route_intent(text):
         
         result = response.json()
         response_text = result.get("response", "")
+        print(f"[DEBUG] Raw LLM Response: {response_text}")
 
         # Parse the JSON from the LLM response
         try:
