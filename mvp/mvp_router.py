@@ -10,7 +10,7 @@ Your job is to analyze the user's voice command and output a JSON object represe
 
 Output Format:
 {
-    "type": "active" | "passive" | "unknown",
+    "type": "active" | "passive" | "sub_agent" | "unknown",
     "action": "string_action_name",
     "params": { ... }
 }
@@ -18,8 +18,9 @@ Output Format:
 Examples:
 1. "Turn on the kitchen lights." -> {"type": "active", "action": "control_lights", "params": {"location": "kitchen", "state": "on"}}
 2. "Remind me to buy milk." -> {"type": "passive", "action": "save_reminder", "params": {"content": "buy milk"}}
-3. "What is the weather in Tokyo?" -> {"type": "active", "action": "get_weather", "params": {"location": "Tokyo"}}
+3. "Research the history of the internet." -> {"type": "sub_agent", "action": "spawn_agent", "params": {"task_spec": "You are a research assistant. Provide a comprehensive summary of the history of the internet, covering key milestones like ARPANET, TCP/IP, and the World Wide Web."}}
 
+For 'sub_agent' tasks, you MUST generate a VERBOSE 'task_spec' that gives the sub-agent clear, detailed instructions on how to perform the task. Do not just repeat the user's input.
 Do not output any text other than the JSON.
 """
 
@@ -37,7 +38,8 @@ def route_intent(text):
         "prompt": text,
         "system": SYSTEM_PROMPT,
         "stream": False,
-        "format": "json" # Force JSON mode if model supports it, otherwise prompt handles it
+        "stream": False,
+        # "format": "json" # Disable JSON mode for DeepSeek to allow <think> blocks
     }
 
     try:
@@ -64,6 +66,13 @@ def route_intent(text):
         # Parse the JSON from the LLM response
         try:
             intent = json.loads(response_text)
+            
+            # Validate structure
+            if "type" not in intent:
+                intent["type"] = "unknown"
+            if "action" not in intent:
+                intent["action"] = "unknown_action"
+                
             return intent
         except json.JSONDecodeError:
             print(f"[!] Failed to parse JSON from LLM: {response_text}")

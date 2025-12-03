@@ -1,20 +1,53 @@
 import time
+import time
+import subprocess
 from mvp_whisper import transcribe_audio
 from mvp_router import route_intent
+
+def execute_sub_agent(task_spec):
+    """
+    Spawns a transient Docker container to execute the task.
+    """
+    print(f"[*] Spawning Sub-Agent for task: {task_spec[:50]}...")
+    
+    try:
+        # Run the Go-based sub-agent container
+        # --rm: Remove container after exit
+        # --network host: Access host's Ollama (Linux) or use host.docker.internal (Mac/Win)
+        # Note: On Mac, --network host doesn't work the same way, but host.docker.internal is available by default.
+        result = subprocess.run(
+            ["docker", "run", "--rm", "helix-agent-go", "--task", task_spec],
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        print(f"[*] Sub-Agent Finished. Output:\n{result.stdout}")
+    except subprocess.CalledProcessError as e:
+        print(f"[!] Sub-Agent Failed: {e.stderr}")
+    except FileNotFoundError:
+        print("[!] Docker not found. Is it installed and in your PATH?")
 
 def execute_action(intent):
     """
     Executes the action determined by the router.
     """
-    print(f"[*] Executing Action: {intent['action']}")
-    if intent['action'] == 'get_weather':
+    print(f"[*] Executing Action: {intent.get('action', 'unknown')}")
+    
+    action = intent.get("action", "unknown")
+    if action == 'get_weather':
         print(f"    -> Fetching weather for {intent['params']['location']}...")
         # Stub: Call weather API
         print("    -> It is 22°C and Sunny.")
-    elif intent['action'] == 'save_reminder':
+    elif action == 'save_reminder':
         print(f"    -> Saving reminder: {intent['params']['content']}")
         # Stub: Save to DB
         print("    -> Reminder saved.")
+    elif intent['action'] == "spawn_agent":
+        task_spec = intent.get("params", {}).get("task_spec", "")
+        if task_spec:
+            execute_sub_agent(task_spec)
+        else:
+            print("[!] Error: No task_spec provided for sub_agent.")
     else:
         print("    -> Unknown command, logging.")
 
