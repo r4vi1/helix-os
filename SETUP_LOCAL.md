@@ -13,9 +13,11 @@ brew install portaudio ffmpeg
 
 ## 2. Python Dependencies
 
-Install the required Python packages:
+It is recommended to use a virtual environment to avoid conflicts with system packages.
 
 ```bash
+python3 -m venv venv
+source venv/bin/activate
 pip install -r mvp/requirements.txt
 ```
 
@@ -35,7 +37,7 @@ HelixOS uses **Ollama** to run the routing intelligence locally.
 
 ## 4. Run HelixOS
 
-Once everything is set up:
+Once everything is set up and your virtual environment is active:
 
 ```bash
 python3 mvp/mvp_runner.py

@@ -16,6 +16,8 @@ This guide will help you get the Minimum Viable Product (MVP) of HelixOS running
 
 2.  **Install dependencies:**
     ```bash
+    python3 -m venv venv
+    source venv/bin/activate
     pip install -r mvp/requirements.txt
     ```
 
