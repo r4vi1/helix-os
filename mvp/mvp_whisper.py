@@ -1,18 +1,49 @@
-import time
+import sounddevice as sd
+import numpy as np
+import scipy.io.wavfile as wav
+import whisper
+import os
+import tempfile
+
+# Load the model once at startup to avoid reloading latency
+print("[*] Loading Whisper model 'base'...")
+model = whisper.load_model("base")
+print("[*] Whisper model loaded.")
+
+def record_audio(duration=5, fs=44100):
+    """
+    Records audio from the default microphone.
+    """
+    print(f"[*] Listening for {duration} seconds...")
+    recording = sd.rec(int(duration * fs), samplerate=fs, channels=1)
+    sd.wait()  # Wait until recording is finished
+    return recording, fs
 
 def transcribe_audio(duration=5):
     """
-    Simulates recording and transcribing audio.
-    In a real implementation, this would use 'sounddevice' to record
-    and 'openai-whisper' to transcribe.
+    Records audio and uses local Whisper to transcribe it.
     """
-    print(f"[*] Listening for {duration} seconds...")
-    time.sleep(duration)  # Simulate recording time
+    # 1. Record
+    recording, fs = record_audio(duration)
     
-    # Mock return for MVP - in reality this comes from Whisper
+    # 2. Save to temporary WAV file (Whisper expects a file or path)
+    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as temp_wav:
+        temp_wav_path = temp_wav.name
+        # sounddevice returns float32, wavfile expects int16 or float32. 
+        # Whisper handles it, but let's be safe and save as is.
+        wav.write(temp_wav_path, fs, recording)
+    
+    # 3. Transcribe
     print("[*] Transcribing...")
-    time.sleep(1) # Simulate processing
-    
-    # For the MVP demo, we'll return a hardcoded string or random choice
-    # to show the flow.
-    return "What is the weather in Tokyo"
+    try:
+        result = model.transcribe(temp_wav_path)
+        text = result["text"].strip()
+    except Exception as e:
+        print(f"[!] Error during transcription: {e}")
+        text = ""
+    finally:
+        # Cleanup
+        if os.path.exists(temp_wav_path):
+            os.remove(temp_wav_path)
+            
+    return text
