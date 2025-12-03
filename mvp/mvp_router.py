@@ -48,6 +48,19 @@ def route_intent(text):
         response_text = result.get("response", "")
         print(f"[DEBUG] Raw LLM Response: {response_text}")
 
+        # Clean DeepSeek/Reasoning model output
+        # 1. Remove <think>...</think> blocks
+        if "<think>" in response_text and "</think>" in response_text:
+            response_text = response_text.split("</think>")[-1].strip()
+        
+        # 2. Remove markdown code blocks if present
+        if "```json" in response_text:
+            response_text = response_text.split("```json")[1].split("```")[0].strip()
+        elif "```" in response_text:
+            response_text = response_text.split("```")[1].split("```")[0].strip()
+            
+        print(f"[DEBUG] Cleaned Response: {response_text}")
+
         # Parse the JSON from the LLM response
         try:
             intent = json.loads(response_text)
