@@ -46,14 +46,7 @@ def route_intent(text):
         
         result = response.json()
         response_text = result.get("response", "")
-    except requests.exceptions.HTTPError as e:
-        if e.response.status_code == 404:
-            print(f"[!] Model '{MODEL}' not found. Please run 'ollama pull {MODEL}'")
-            return {"type": "error", "action": "model_not_found", "params": {"model": MODEL}}
-        else:
-            print(f"[!] HTTP Error: {e}")
-            return {"type": "error", "action": "http_error", "params": {"error": str(e)}}
-        
+
         # Parse the JSON from the LLM response
         try:
             intent = json.loads(response_text)
@@ -61,6 +54,14 @@ def route_intent(text):
         except json.JSONDecodeError:
             print(f"[!] Failed to parse JSON from LLM: {response_text}")
             return {"type": "unknown", "action": "parse_error", "params": {"raw": response_text}}
+
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 404:
+            print(f"[!] Model '{MODEL}' not found. Please run 'ollama pull {MODEL}'")
+            return {"type": "error", "action": "model_not_found", "params": {"model": MODEL}}
+        else:
+            print(f"[!] HTTP Error: {e}")
+            return {"type": "error", "action": "http_error", "params": {"error": str(e)}}
             
     except requests.exceptions.ConnectionError:
         print("[!] Could not connect to Ollama. Is it running? (ollama serve)")
