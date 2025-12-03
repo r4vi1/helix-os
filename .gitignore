@@ -137,3 +137,7 @@ cython_debug/
 # IDE
 .vscode/
 .idea/
+
+# Internal Documentation
+PROJECT_STATUS.md
+Main_idea.md

@@ -13,6 +13,21 @@ To build an open, privacy-preserving alternative to cloud-locked AI assistants b
 *   **Local K3s Cluster**: Lightweight Kubernetes for orchestrating the distributed agents.
 *   **Local Registry**: A mechanism for caching and reusing successful agent images.
 
+## ⚡️ Features
+
+- **Local Voice Ingress**: Real-time speech-to-text using `openai-whisper`.
+- **Local Intelligence**: Intent classification using `deepseek-r1:8b` (via Ollama).
+- **Just-in-Time Sub-Agents**: Spawns ephemeral, lightweight **Go-based Docker containers** (<10MB) for complex tasks.
+- **Privacy First**: All processing happens locally. No audio leaves your network.
+
+## 🛠️ Tech Stack
+
+- **Core**: Python 3.10+
+- **Orchestration**: Docker (Moving to K3s in v2)
+- **Sub-Agents**: Go (Golang) + Scratch images
+- **LLM**: DeepSeek-R1 / Llama 3
+- **STT**: OpenAI Whisper
+
 ## Technology Stack
 *   **Python**: The primary language for the agent runtime and Whisper integration.
 *   **K3s**: Lightweight Kubernetes for orchestration.
