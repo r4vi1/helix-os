@@ -27,10 +27,10 @@ HelixOS uses **Ollama** to run the routing intelligence locally.
 
 1.  **Download & Install**: [https://ollama.com/download](https://ollama.com/download)
 2.  **Start Ollama**: Open the app or run `ollama serve` in a terminal.
-3.  **Pull the Model**: We use `llama3` by default. Run this command:
+3.  **Pull the Model**: We use `deepseek-r1:8b` by default (since it was detected on your system). Run this command:
 
     ```bash
-    ollama pull llama3
+    ollama pull deepseek-r1:8b
     ```
 
     *Note: You can change the model in `mvp/mvp_router.py` if you prefer another one (e.g., `mistral`).*

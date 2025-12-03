@@ -2,7 +2,7 @@ import requests
 import json
 
 OLLAMA_URL = "http://localhost:11434/api/generate"
-MODEL = "llama3" # Default to llama3, user can change
+MODEL = "deepseek-r1:8b" # Using installed model
 
 SYSTEM_PROMPT = """
 You are the Router for HelixOS, a distributed AI operating system.
@@ -46,6 +46,13 @@ def route_intent(text):
         
         result = response.json()
         response_text = result.get("response", "")
+    except requests.exceptions.HTTPError as e:
+        if e.response.status_code == 404:
+            print(f"[!] Model '{MODEL}' not found. Please run 'ollama pull {MODEL}'")
+            return {"type": "error", "action": "model_not_found", "params": {"model": MODEL}}
+        else:
+            print(f"[!] HTTP Error: {e}")
+            return {"type": "error", "action": "http_error", "params": {"error": str(e)}}
         
         # Parse the JSON from the LLM response
         try:
