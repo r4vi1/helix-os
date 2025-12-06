@@ -1,8 +1,14 @@
 import requests
 import json
 
-OLLAMA_URL = "http://localhost:11434/api/generate"
-MODEL = "deepseek-r1:8b" # Using installed model
+import json
+import json
+try:
+    from config import MODEL_NAME, OLLAMA_URL
+except ImportError:
+    from .config import MODEL_NAME, OLLAMA_URL
+
+MODEL = MODEL_NAME # Use dynamic model from config
 
 SYSTEM_PROMPT = """
 You are the Router for HelixOS, a distributed AI operating system.

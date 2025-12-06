@@ -14,8 +14,10 @@ import (
 // Config
 const (
 	OllamaURL = "http://host.docker.internal:11434/api/generate"
-	Model     = "deepseek-r1:8b" // Using the same model as the host
 )
+
+// Default Model (fallback)
+var Model = "deepseek-r1:8b"
 
 // RequestPayload structure for Ollama API
 type RequestPayload struct {
@@ -33,6 +35,7 @@ type ResponsePayload struct {
 func main() {
 	// 1. Parse Arguments
 	taskPtr := flag.String("task", "", "The task description to execute")
+	modelPtr := flag.String("model", "", "The model to use (optional)")
 	flag.Parse()
 
 	if *taskPtr == "" {
@@ -40,6 +43,11 @@ func main() {
 		os.Exit(1)
 	}
 
+	if *modelPtr != "" {
+		Model = *modelPtr
+	}
+
+	fmt.Printf("[Sub-Agent] Using Model: %s\n", Model)
 	fmt.Printf("[Sub-Agent] Received Task: %s\n", *taskPtr)
 
 	// 2. Prepare Payload

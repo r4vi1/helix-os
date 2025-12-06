@@ -1,8 +1,13 @@
 import time
-import time
 import subprocess
-from mvp_whisper import transcribe_audio
-from mvp_router import route_intent
+try:
+    from config import MODEL_NAME
+    from mvp_whisper import transcribe_audio
+    from mvp_router import route_intent
+except ImportError:
+    from .config import MODEL_NAME
+    from .mvp_whisper import transcribe_audio
+    from .mvp_router import route_intent
 
 def execute_sub_agent(task_spec):
     """
@@ -16,7 +21,7 @@ def execute_sub_agent(task_spec):
         # --network host: Access host's Ollama (Linux) or use host.docker.internal (Mac/Win)
         # Note: On Mac, --network host doesn't work the same way, but host.docker.internal is available by default.
         result = subprocess.run(
-            ["docker", "run", "--rm", "helix-agent-go", "--task", task_spec],
+            ["docker", "run", "--rm", "helix-agent-go", "--task", task_spec, "--model", MODEL_NAME],
             capture_output=True,
             text=True,
             check=True
@@ -51,8 +56,24 @@ def execute_action(intent):
     else:
         print("    -> Unknown command, logging.")
 
+def check_docker():
+    """
+    Verifies that any container runtime (Docker/OrbStack) is running.
+    """
+    try:
+        subprocess.run(["docker", "version"], check=True, capture_output=True)
+        print("[*] Container Runtime detected.")
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        print("[!] Error: Docker/OrbStack is not running or not in PATH.")
+        print("    Please start Docker Desktop or OrbStack.")
+        exit(1)
+
 def main():
-    print("=== HelixOS MVP Running ===")
+    print(f"=== HelixOS MVP Running ({MODEL_NAME}) ===")
+    check_docker()
+    
+    # Initialize Whisper
+    print("[*] Loading Whisper model 'base'...")
     try:
         while True:
             # 1. Input
