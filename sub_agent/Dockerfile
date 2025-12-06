@@ -1,22 +1,18 @@
 # Stage 1: Builder
-# Use TinyGo for extreme size optimization (Level 2)
-FROM tinygo/tinygo:latest AS builder
+FROM golang:1.21-alpine AS builder
 
 WORKDIR /app
 COPY go.mod ./
 COPY main.go ./
 
-# Build the binary with TinyGo
-# -no-debug: Strip debug symbols (Level 1)
-RUN tinygo build -o helix-agent -no-debug .
+# Build the binary
+# CGO_ENABLED=0 ensures static linking
+# -ldflags="-s -w": Strip DWARF and symbol table for smaller size
+RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-s -w" -o helix-agent .
 
 # Stage 2: Runtime
 FROM scratch
 
 WORKDIR /root/
-
-# Copy the binary from builder
 COPY --from=builder /app/helix-agent .
-
-# Entrypoint
 ENTRYPOINT ["./helix-agent"]
