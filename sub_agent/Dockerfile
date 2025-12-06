@@ -1,13 +1,14 @@
 # Stage 1: Builder
-FROM golang:1.21-alpine AS builder
+# Use TinyGo for extreme size optimization (Level 2)
+FROM tinygo/tinygo:latest AS builder
 
 WORKDIR /app
 COPY go.mod ./
 COPY main.go ./
 
-# Build the binary
-# CGO_ENABLED=0 creates a statically linked binary (required for scratch)
-RUN CGO_ENABLED=0 GOOS=linux go build -o helix-agent .
+# Build the binary with TinyGo
+# -no-debug: Strip debug symbols (Level 1)
+RUN tinygo build -o helix-agent -no-debug .
 
 # Stage 2: Runtime
 FROM scratch
