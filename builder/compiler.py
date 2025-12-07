@@ -44,6 +44,7 @@ class Compiler:
                 "tinygo", "build",
                 "-o", output_name,
                 "-no-debug",
+                "-ldflags=-extldflags=-static", # Force pure static linking
                 "main.go"
             ]
             
@@ -53,15 +54,13 @@ class Compiler:
                 # Check if binary exists
                 if not os.path.exists(bin_path):
                     raise Exception("Binary created but not found on host?")
-                    
-                # UPX Compression (Optional - checks if UPX exists on HOST or DOCKER)
-                # For MVP, skipping UPX inside Docker to avoid complex image building.
-                # If host has UPX, use it.
-                if self._is_tool_available("upx"):
-                    print("[*] Compressing with UPX...")
-                    subprocess.run(["upx", "--best", "--lzma", bin_path], check=True, capture_output=True)
-                else:
-                    print("[!] UPX not found on host, skipping compression.")
+                
+                # UPX Compression - DISABLED due to SIGSEGV on ARM64/Alpine interactions
+                # if self._is_tool_available("upx"):
+                #     print("[*] Compressing with UPX...")
+                #     subprocess.run(["upx", "--best", "--lzma", bin_path], check=True, capture_output=True)
+                # else:
+                #     print("[!] UPX not found on host, skipping compression.")
 
                 # Read binary content to return it
                 with open(bin_path, "rb") as f:
