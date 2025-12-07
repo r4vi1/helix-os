@@ -23,7 +23,7 @@ var (
 const DefaultOllamaHost = "http://host.docker.internal:11434"
 
 // Gemini Config
-const GeminiBaseURL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+const GeminiBaseURL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-001:generateContent"
 
 // Data structs for Ollama
 type OllamaRequest struct {
