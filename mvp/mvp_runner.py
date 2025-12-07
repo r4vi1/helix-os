@@ -16,22 +16,27 @@ def execute_sub_agent(task_spec):
     print(f"[*] Spawning Sub-Agent for task: {task_spec[:50]}...")
 
     # Build the command arguments
-    cmd = [
-        "docker", "run", "--rm", 
-        "helix-agent-go", 
-        "--task", task_spec,
-        "--provider", HELIX_SUB_AGENT_PROVIDER
-    ]
+    # Build the command arguments
+    # Structure: docker run [OPTIONS] IMAGE [COMMAND] [ARG...]
+    cmd = ["docker", "run", "--rm"]
 
-    # Handle Provider-specific args
+    # Handle Provider-specific args (Environment Variables)
     if HELIX_SUB_AGENT_PROVIDER == "cloud":
         if not GEMINI_API_KEY:
             print("[!] Error: HELIX_SUB_AGENT_PROVIDER is 'cloud' but GEMINI_API_KEY is not set.")
             return
-        # Pass API key securely via env var
+        # Pass API key securely via env var - MUST be before image name
         cmd.extend(["-e", f"GEMINI_API_KEY={GEMINI_API_KEY}"])
-    else:
-        # Local Ollama Provider
+    
+    # Add Image Name
+    cmd.append("helix-agent-go")
+    
+    # Add Application Arguments (Passed to Go binary)
+    cmd.extend(["--task", task_spec])
+    cmd.extend(["--provider", HELIX_SUB_AGENT_PROVIDER])
+
+    if HELIX_SUB_AGENT_PROVIDER != "cloud":
+        # Local model flag for Go binary
         cmd.extend(["--model", MODEL_NAME])
 
     try:
