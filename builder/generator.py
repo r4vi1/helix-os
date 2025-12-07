@@ -34,9 +34,11 @@ class CodeGenerator:
         Requirements:
         1. Write a complete, standalone Go program (`package main`).
         2. Use only the standard library. NO external modules.
-        3. The program must accept input via command-line arguments or stdin.
-        4. Output the result to stdout as JSON.
-        5. Code MUST be compatible with TinyGo (avoid extensive reflection `encoding/json` is okay but keep it simple).
+        3. The program must accept input via command-line arguments (os.Args).
+        4. ALWAYS check `len(os.Args)` before accessing arguments. If missing, return a JSON error.
+        5. Output the result to stdout as JSON.
+        6. Code MUST be compatible with TinyGo. Do not use cgo.
+        7. Ensure memory safety (no nil pointer dereferences).
         
         Output ONLY the raw Go code. No markdown formatting, no explanation.
         """

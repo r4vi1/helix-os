@@ -50,16 +50,11 @@ def handle_complex_task(task_spec):
     if agent_image:
         print(f"    -> [EXEC] Running {agent_image}...")
         try:
-            # Determine args (heuristic for MVP)
+            # Determine args
             cmd = ["docker", "run", "--rm", agent_image]
-            # Simple heuristic: if task has a number, pass it.
-            # In a real system, the 'params' from the router would parse this.
-            import re
-            numbers = re.findall(r'\d+', task_spec)
-            if numbers:
-                cmd.append(numbers[0])
-            elif "fibonacci" in task_spec.lower():
-                cmd.append("10") # Default test
+            
+            # Pass the task specification as the first argument to the agent
+            cmd.append(task_spec)
 
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
             print(f"    -> [RESULT]: {result.stdout.strip()}")
