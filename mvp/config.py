@@ -1,4 +1,4 @@
-```python
+
 # Helper Config for HelixOS
 
 import os
