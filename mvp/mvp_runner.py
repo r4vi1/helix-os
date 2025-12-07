@@ -56,18 +56,23 @@ def handle_complex_task(task_spec):
             # Pass the task specification as the first argument to the agent
             cmd.append(task_spec)
 
-            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-            print(f"    -> [RESULT]: {result.stdout.strip()}")
-        except subprocess.CalledProcessError as e:
-            print(f"    [!] Execution Error (Exit Code: {e.returncode}):")
-            if e.stdout:
-                print(f"    [STDOUT] {e.stdout}")
-            if e.stderr:
-                print(f"    [STDERR] {e.stderr}")
-            if not e.stdout and not e.stderr:
-                 print("    (No output captured)")
+            # Run without check=True to handle non-zero exits gracefully
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            
+            # Print the output regardless of exit code
+            if result.stdout:
+                print(f"    -> [RESULT]: {result.stdout.strip()}")
+            if result.stderr:
+                print(f"    -> [STDERR]: {result.stderr.strip()}")
+            
+            if result.returncode != 0:
+                print(f"    -> [INFO] Agent exited with code {result.returncode}")
+            
+            if not result.stdout and not result.stderr:
+                print("    -> [WARN] No output captured from agent.")
+                
         except Exception as e:
-            print(f"    [!] Error: {e}")
+            print(f"    [!] Error running container: {e}")
 
 def execute_action(intent):
     """
