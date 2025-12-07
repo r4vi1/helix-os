@@ -50,7 +50,9 @@ def execute_sub_agent(task_spec):
         )
         print(f"[*] Sub-Agent Finished. Output:\n{result.stdout}")
     except subprocess.CalledProcessError as e:
-        print(f"[!] Sub-Agent Failed: {e.stderr}")
+        print(f"[!] Sub-Agent Failed:")
+        print(f"STDOUT:\n{e.stdout}")
+        print(f"STDERR:\n{e.stderr}")
     except FileNotFoundError:
         print("[!] Docker not found. Is it installed and in your PATH?")
 
