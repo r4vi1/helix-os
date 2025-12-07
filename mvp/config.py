@@ -49,7 +49,7 @@ def select_model():
         return "deepseek-r1:8b" # Fallback default
 
     # Preference list
-    preferences = ["deepseek-r1:8b", "llama3:latest", "llama3", "mistral:latest", "mistral"]
+    preferences = ["gemma3:4b", "deepseek-r1:8b", "llama3:latest", "llama3", "mistral:latest", "mistral"]
     
     for pref in preferences:
         # Check for exact match or match ignoring tag if not specified
