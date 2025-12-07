@@ -27,20 +27,23 @@ class CodeGenerator:
         print(f"[*] Generating Go code for: {task_spec}")
         
         prompt = f"""
-        You are an expert Golang developer specializing in high-performance, dependency-free CLIs for TinyGo.
+        You are an expert Golang developer. Generate a Go program that acts as a proxy to the Gemini AI API.
         
-        Task: {task_spec}
+        Task Context: {task_spec}
         
-        Requirements:
-        1. Write a complete, standalone Go program (`package main`).
-        2. Use only the standard library. NO external modules.
-        3. The program must accept input via command-line arguments (os.Args).
-        4. ALWAYS check `len(os.Args)` before accessing arguments. If missing, return a JSON error.
-        5. Output the result to stdout as JSON.
-        6. Code MUST be compatible with TinyGo. Do not use cgo.
-        7. Ensure memory safety (no nil pointer dereferences).
+        The program MUST:
+        1. Be a standalone `package main` using ONLY the standard library (`net/http`, `encoding/json`, `os`, `fmt`, `io`, `bytes`).
+        2. Read the query from `os.Args[1]` (check `len(os.Args)` first, return JSON error if missing).
+        3. Read the API key from the `GEMINI_API_KEY` environment variable (`os.Getenv`).
+        4. Make an HTTP POST request to: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=<API_KEY>`
+        5. The request body must be JSON: {{"contents": [{{"parts": [{{"text": "<user_query>"}}]}}]}}
+        6. Parse the JSON response and extract the text from: response["candidates"][0]["content"]["parts"][0]["text"]
+        7. Output the final result as JSON to stdout: {{"query": "<original_query>", "result": "<gemini_response>"}}
+        8. Handle errors gracefully (network issues, API errors, missing key) and return JSON error objects.
+        9. Set appropriate Content-Type header: application/json.
+        10. Use `io.ReadAll` (not `ioutil.ReadAll` which is deprecated).
         
-        Output ONLY the raw Go code. No markdown formatting, no explanation.
+        Output ONLY the raw Go code. No markdown, no explanation, no backticks.
         """
         
         payload = {

@@ -30,9 +30,8 @@ class Compiler:
             
             print(f"[*] Detected Host Arch: {machine} -> GOARCH={goarch}")
 
-            # Docker run command
-            # tinygo build -o /out/agent -target=linux -no-debug /src/main.go
-            # We mount temp_dir to /app inside container
+            # Docker run command using standard Go (not TinyGo) for full net/http support
+            # golang:alpine is small and has full stdlib
             cmd = [
                 "docker", "run", "--rm",
                 "-v", f"{temp_dir}:/app",
@@ -40,11 +39,10 @@ class Compiler:
                 "-e", "CGO_ENABLED=0",
                 "-e", "GOOS=linux",
                 "-e", f"GOARCH={goarch}",
-                self.builder_image,
-                "tinygo", "build",
+                "golang:alpine",  # Switch from tinygo to standard Go
+                "go", "build",
+                "-ldflags=-s -w",  # Strip debug info for smaller binary
                 "-o", output_name,
-                "-no-debug",
-                "-ldflags=-extldflags=-static", # Force pure static linking
                 "main.go"
             ]
             
