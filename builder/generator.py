@@ -13,9 +13,8 @@ try:
 except ImportError:
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
-# Using Gemini 1.5 Pro as the consistent model. 
-# "gemini-3-pro-preview" is not currently a valid public endpoint.
-GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={GEMINI_API_KEY}"
+# Using Gemini 3 Pro Preview as requested.
+GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-3-pro-preview:generateContent?key={GEMINI_API_KEY}"
 
 class CodeGenerator:
     def __init__(self, api_key=GEMINI_API_KEY):
