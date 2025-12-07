@@ -44,6 +44,9 @@ class AgentSearchTool:
             return config_data.get("config", {}).get("Labels", {})
             
         except Exception as e:
+            # 404 is normal for new agents or fresh registry
+            if "404" in str(e):
+                return {}
             print(f"[!] Error fetching metadata for {agent_name}: {e}")
             return {}
 
@@ -79,7 +82,7 @@ class AgentSearchTool:
 
         if best_match:
             print(f"[*] Found match: {best_match[0]}")
-            return f"localhost:5000/{best_match[0]}:latest"
+            return f"localhost:5001/{best_match[0]}:latest"
             
         print("[*] No suitable agent found in registry.")
         return None

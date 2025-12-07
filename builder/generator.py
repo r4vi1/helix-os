@@ -12,7 +12,10 @@ try:
     from mvp.config import GEMINI_API_KEY
 except ImportError:
     GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key={GEMINI_API_KEY}" # Using 1.5 Pro as proxy for 3-pro-preview in MVP code
+
+# Using Gemini 1.5 Pro as the consistent model. 
+# "gemini-3-pro-preview" is not currently a valid public endpoint.
+GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={GEMINI_API_KEY}"
 
 class CodeGenerator:
     def __init__(self, api_key=GEMINI_API_KEY):
