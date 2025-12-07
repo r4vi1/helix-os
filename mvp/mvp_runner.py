@@ -99,10 +99,66 @@ def main():
     # Initialize Whisper
     print("[*] Loading Whisper model 'base'...")
     try:
+        # --- Builder Test Logic ---
+        import argparse
+        import sys
+        import os
+        
+        # Ensure root directory is in path to import builder
+        sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+        parser = argparse.ArgumentParser()
+        parser.add_argument("--test-builder", help="Description of task to build agent for")
+        parser.add_argument("--test-search", help="Description of task to search agent for")
+        args, unknown = parser.parse_known_args()
+
+        if args.test_builder or args.test_search:
+            from builder.search_tool import AgentSearchTool
+            from builder.controller import SubAgentController
+            import subprocess
+
+            task = args.test_builder or args.test_search
+            search_tool = AgentSearchTool()
+            
+            print(f"[*] Main Agent: Received task '{task}'")
+            
+            # 1. Search
+            agent_image = search_tool.search(task)
+            
+            if agent_image:
+                 print(f"[*] Agent found: {agent_image}")
+            else:
+                 print(f"[*] Agent MISS. Delegating to Sub-Agent Controller...")
+                 if args.test_builder:
+                     controller = SubAgentController()
+                     agent_image = controller.create_agent(task)
+                     print(f"[*] New Agent Created: {agent_image}")
+                 else:
+                     print("[*] Search only mode. Exiting.")
+                     sys.exit(0)
+
+            # 2. Run (if in builder mode)
+            if args.test_builder and agent_image:
+                print(f"[*] Executing Agent: {agent_image}")
+                run_cmd = ["docker", "run", "--rm", agent_image]
+                # Heuristic argument passing for demo
+                task_lower = task.lower()
+                if "factorial" in task_lower:
+                    run_cmd.append("10") # Test value
+                elif "fibonacci" in task_lower:
+                    run_cmd.append("10")
+                    
+                try:
+                    subprocess.run(run_cmd, check=True)
+                except Exception as e:
+                    print(f"[!] execution failed: {e}")
+            sys.exit(0) 
+        # --- End Builder Test ---
+
         while True:
-            # 1. Input
-            text = transcribe_audio()
-            print(f"[*] Heard: {text}")
+            # 1. Listen
+            text = transcribe_audio() # Changed from listen_command() to transcribe_audio() to match original
+            if not text: continue
             
             # 2. Route
             intent = route_intent(text)
