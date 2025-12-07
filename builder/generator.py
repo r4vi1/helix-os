@@ -2,9 +2,16 @@ import os
 import requests
 import json
 
-# Placeholder for real Gemini 3 API client
-# In production, use `google.generativeai` library
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+import sys
+import os
+
+# Add root to sys.path to allow importing from mvp
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+try:
+    from mvp.config import GEMINI_API_KEY
+except ImportError:
+    GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GEMINI_URL = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro-latest:generateContent?key={GEMINI_API_KEY}" # Using 1.5 Pro as proxy for 3-pro-preview in MVP code
 
 class CodeGenerator:
