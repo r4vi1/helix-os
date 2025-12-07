@@ -24,11 +24,13 @@ class Dockerizer:
             labels = " \\\n".join([f'"{k}"="{v}"' for k, v in metadata.items()])
             
             dockerfile_content = f"""
-            FROM scratch
-            COPY agent /agent
-            LABEL {labels}
-            ENTRYPOINT ["/agent"]
-            """
+FROM gcr.io/distroless/static:nonroot
+WORKDIR /
+COPY agent /agent
+LABEL helix.task="{metadata['task']}"
+LABEL helix.capabilities="{metadata['capabilities']}"
+ENTRYPOINT ["/agent"]
+"""
             
             dockerfile_path = os.path.join(temp_dir, "Dockerfile")
             with open(dockerfile_path, "w") as f:

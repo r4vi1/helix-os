@@ -21,21 +21,31 @@ class Compiler:
             with open(src_path, "w") as f:
                 f.write(source_code)
                 
-            # Docker run command
-            # tinygo build -o /out/agent -target=linux -no-debug /src/main.go
-            # We mount temp_dir to /app inside container
-            cmd = [
-                "docker", "run", "--rm",
-                "-v", f"{temp_dir}:/app",
-                "-w", "/app",
-                "-e", "CGO_ENABLED=0",
-                "-e", "GOOS=linux",
-                self.builder_image,
-                "tinygo", "build",
-                "-o", output_name,
-                "-no-debug",
-                "main.go"
-            ]
+        # Detect Architecture
+        import platform
+        machine = platform.machine().lower()
+        goarch = "amd64"
+        if "arm" in machine or "aarch64" in machine:
+            goarch = "arm64"
+        
+        print(f"[*] Detected Host Arch: {machine} -> GOARCH={goarch}")
+
+        # Docker run command
+        # tinygo build -o /out/agent -target=linux -no-debug /src/main.go
+        # We mount temp_dir to /app inside container
+        cmd = [
+            "docker", "run", "--rm",
+            "-v", f"{temp_dir}:/app",
+            "-w", "/app",
+            "-e", "CGO_ENABLED=0",
+            "-e", "GOOS=linux",
+            "-e", f"GOARCH={goarch}",
+            self.builder_image,
+            "tinygo", "build",
+            "-o", output_name,
+            "-no-debug",
+            "main.go"
+        ]
             
             try:
                 subprocess.run(cmd, check=True, capture_output=True)
