@@ -44,26 +44,49 @@ class CodeGenerator:
         payload = {
             "contents": [{"parts": [{"text": prompt}]}]
         }
-        
-        try:
-            # Simulated response for local verification if API key is missing
-            if not self.api_key:
-                print("[!] No GEMINI_API_KEY found. using Mock content.")
-                return self._mock_generator(task_spec)
 
-            response = requests.post(GEMINI_URL, json=payload)
-            response.raise_for_status()
-            
-            result = response.json()
-            code = result["candidates"][0]["content"]["parts"][0]["text"]
-            
-            # Clean up markdown if present
-            code = code.replace("```go", "").replace("```", "").strip()
-            return code
-            
-        except Exception as e:
-            print(f"[!] Error producing code: {e}")
-            raise
+        # Model Priority List
+        models = [
+            "gemini-3-pro-preview",
+            "gemini-1.5-pro",
+            "gemini-1.5-flash"
+        ]
+
+        # 1. Try Real Models
+        if self.api_key:
+            for model in models:
+                try:
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={self.api_key}"
+                    print(f"    -> [LLM] Trying model: {model}...")
+                    
+                    response = requests.post(url, json=payload)
+                    response.raise_for_status()
+                    
+                    result = response.json()
+                    code = result["candidates"][0]["content"]["parts"][0]["text"]
+                    
+                    # Clean up markdown if present
+                    code = code.replace("```go", "").replace("```", "").strip()
+                    return code
+                    
+                except requests.exceptions.HTTPError as e:
+                    if e.response.status_code == 429:
+                        print(f"    [!] Rate Limit (429) hit for {model}. Trying fallback...")
+                        continue # Try next model
+                    elif e.response.status_code == 404:
+                         print(f"    [!] Model {model} not found or access denied. Trying fallback...")
+                         continue
+                    else:
+                        print(f"    [!] API Error with {model}: {e}")
+                        # Don't break immediately, try next just in case
+                        continue
+                except Exception as e:
+                    print(f"    [!] Unexpected error with {model}: {e}")
+                    continue
+
+        # 2. Fallback to Mock
+        print("[!] All LLM attempts failed or API Key missing. Using Mock Generator.")
+        return self._mock_generator(task_spec)
 
     def _mock_generator(self, task_spec):
         if "fibonacci" in task_spec.lower():
