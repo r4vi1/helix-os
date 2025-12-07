@@ -28,6 +28,8 @@ class Compiler:
                 "docker", "run", "--rm",
                 "-v", f"{temp_dir}:/app",
                 "-w", "/app",
+                "-e", "CGO_ENABLED=0",
+                "-e", "GOOS=linux",
                 self.builder_image,
                 "tinygo", "build",
                 "-o", output_name,

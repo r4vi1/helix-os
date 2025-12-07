@@ -64,7 +64,13 @@ def handle_complex_task(task_spec):
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
             print(f"    -> [RESULT]: {result.stdout.strip()}")
         except subprocess.CalledProcessError as e:
-            print(f"    [!] Execution Error: {e.stderr}")
+            print(f"    [!] Execution Error (Exit Code: {e.returncode}):")
+            if e.stdout:
+                print(f"    [STDOUT] {e.stdout}")
+            if e.stderr:
+                print(f"    [STDERR] {e.stderr}")
+            if not e.stdout and not e.stderr:
+                 print("    (No output captured)")
         except Exception as e:
             print(f"    [!] Error: {e}")
 
