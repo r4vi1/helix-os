@@ -2,9 +2,8 @@
 # Use Alpine for build tools (UPX)
 FROM golang:1.21-alpine AS builder
 
-# Install UPX (Ultimate Packer for eXecutables)
-# Novel Idea: Binary Packing to rival TinyGo size
-RUN apk add --no-cache upx
+# Install UPX and CA Certificates (Required for HTTPS/Gemini)
+RUN apk add --no-cache upx ca-certificates
 
 WORKDIR /app
 COPY go.mod ./
@@ -23,6 +22,8 @@ RUN upx --best --lzma -o helix-agent-compressed helix-agent
 FROM scratch
 
 WORKDIR /root/
+# Copy CA certificates for HTTPS
+COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 # Copy the compressed binary
 COPY --from=builder /app/helix-agent-compressed ./helix-agent
 ENTRYPOINT ["./helix-agent"]

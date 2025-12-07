@@ -11,103 +11,183 @@ import (
 	"strings"
 )
 
-// Config
-const (
-	OllamaURL = "http://host.docker.internal:11434/api/generate"
+// Config flags
+var (
+	task     string
+	model    string
+	provider string
+	apiKey   string
 )
 
-// Default Model (fallback)
-var Model = "deepseek-r1:8b"
+// Ollama Config
+const DefaultOllamaHost = "http://host.docker.internal:11434"
 
-// RequestPayload structure for Ollama API
-type RequestPayload struct {
+// Gemini Config
+const GeminiBaseURL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
+
+// Data structs for Ollama
+type OllamaRequest struct {
 	Model  string `json:"model"`
 	Prompt string `json:"prompt"`
 	Stream bool   `json:"stream"`
 }
 
-// ResponsePayload structure for Ollama API
-type ResponsePayload struct {
+type OllamaResponse struct {
 	Response string `json:"response"`
-	Done     bool   `json:"done"`
+}
+
+// Data structs for Gemini
+type GeminiRequest struct {
+	Contents []GeminiContent `json:"contents"`
+}
+
+type GeminiContent struct {
+	Parts []GeminiPart `json:"parts"`
+}
+
+type GeminiPart struct {
+	Text string `json:"text"`
+}
+
+type GeminiResponse struct {
+	Candidates []GeminiCandidate `json:"candidates"`
+}
+
+type GeminiCandidate struct {
+	Content GeminiContent `json:"content"`
 }
 
 func main() {
-	// 1. Parse Arguments
-	taskPtr := flag.String("task", "", "The task description to execute")
-	modelPtr := flag.String("model", "", "The model to use (optional)")
-	flag.Parse()
+	flag.StringVar(&task, "task", "", "The task description")
+	flag.StringVar(&model, "model", "", "Ollama model name (e.g., deepseek-r1:8b)")
+	flag.StringVar(&provider, "provider", "local", "Provider: 'local' (Ollama) or 'cloud' (Gemini)")
+	flag.StringVar(&apiKey, "api-key", "", "Gemini API Key (required for cloud provider)")
 
-	if *taskPtr == "" {
-		fmt.Println("Error: No task provided. Use --task \"your task here\"")
+	// Parse flags first
+	flag.Parse()
+    
+    // Check ENV for API Key if not passed via flag
+    if apiKey == "" {
+        apiKey = os.Getenv("GEMINI_API_KEY")
+    }
+
+	if task == "" {
+		fmt.Println("Error: --task flag is required")
 		os.Exit(1)
 	}
 
-	if *modelPtr != "" {
-		Model = *modelPtr
+	fmt.Printf("[Sub-Agent] Provider: %s\n", provider)
+	fmt.Printf("[Sub-Agent] Received Task: %s\n", task)
+
+	var result string
+	var err error
+
+	if provider == "cloud" {
+		result, err = callGemini(task, apiKey)
+	} else {
+		// Default to Local
+		if model == "" {
+			model = os.Getenv("HELIX_MODEL")
+			if model == "" {
+				model = "deepseek-r1:8b" 
+			}
+		}
+		fmt.Printf("[Sub-Agent] Using Model: %s\n", model)
+		result, err = callLocalOllama(task, model)
 	}
 
-	fmt.Printf("[Sub-Agent] Using Model: %s\n", Model)
-	fmt.Printf("[Sub-Agent] Received Task: %s\n", *taskPtr)
+	if err != nil {
+		fmt.Printf("Error: %v\n", err)
+		os.Exit(1)
+	}
 
-	// 2. Prepare Payload
-	payload := RequestPayload{
-		Model:  Model,
-		Prompt: *taskPtr,
+	// Clean output (remove <think> tags if present)
+	cleaned := cleanOutput(result)
+
+	fmt.Println("--- Result ---")
+	fmt.Println(cleaned)
+}
+
+func callLocalOllama(prompt, modelName string) (string, error) {
+	// 1. Construct Payload
+	payload := OllamaRequest{
+		Model:  modelName,
+		Prompt: prompt,
 		Stream: false,
 	}
+	jsonData, _ := json.Marshal(payload)
 
-	jsonData, err := json.Marshal(payload)
+	// 2. Call Ollama
+	resp, err := http.Post(DefaultOllamaHost+"/api/generate", "application/json", bytes.NewBuffer(jsonData))
 	if err != nil {
-		fmt.Printf("Error marshaling JSON: %v\n", err)
-		os.Exit(1)
-	}
-
-	// 3. Send Request to Host Ollama
-	// Note: host.docker.internal works on Mac/Windows Docker Desktop.
-	// For Linux, might need --network="host" and localhost, or specific IP.
-	resp, err := http.Post(OllamaURL, "application/json", bytes.NewBuffer(jsonData))
-	if err != nil {
-		fmt.Printf("Error connecting to Ollama at %s: %v\n", OllamaURL, err)
-		fmt.Println("Ensure Ollama is running on the host and accessible.")
-		os.Exit(1)
+		return "", fmt.Errorf("connecting to Ollama at %s/api/generate: %v\nEnsure Ollama is running on the host and accessible.", DefaultOllamaHost, err)
 	}
 	defer resp.Body.Close()
 
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		fmt.Printf("Error: Ollama returned status %d: %s\n", resp.StatusCode, string(body))
-		os.Exit(1)
+	if resp.StatusCode != 200 {
+		return "", fmt.Errorf("ollama returned status: %s", resp.Status)
 	}
 
-	// 4. Parse Response
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Printf("Error reading response body: %v\n", err)
-		os.Exit(1)
+	// 3. Parse Response
+	body, _ := io.ReadAll(resp.Body)
+	var oResp OllamaResponse
+	if err := json.Unmarshal(body, &oResp); err != nil {
+		return "", fmt.Errorf("parsing response: %v", err)
 	}
 
-	var responsePayload ResponsePayload
-	err = json.Unmarshal(body, &responsePayload)
-	if err != nil {
-		fmt.Printf("Error unmarshaling response: %v\n", err)
-		os.Exit(1)
-	}
-
-	// 5. Clean Output (DeepSeek specific)
-	cleanResponse := cleanDeepSeekOutput(responsePayload.Response)
-
-	// 6. Output Result
-	fmt.Println("--- Result ---")
-	fmt.Println(cleanResponse)
+	return oResp.Response, nil
 }
 
-func cleanDeepSeekOutput(text string) string {
-	// Remove <think> tags
-	if strings.Contains(text, "<think>") && strings.Contains(text, "</think>") {
-		parts := strings.Split(text, "</think>")
-		if len(parts) > 1 {
-			text = strings.TrimSpace(parts[1])
+func callGemini(prompt, key string) (string, error) {
+	if key == "" {
+		return "", fmt.Errorf("missing Gemini API Key. Set GEMINI_API_KEY env var")
+	}
+
+	// 1. Construct Payload
+	payload := GeminiRequest{
+		Contents: []GeminiContent{
+			{
+				Parts: []GeminiPart{
+					{Text: prompt},
+				},
+			},
+		},
+	}
+	jsonData, _ := json.Marshal(payload)
+
+	// 2. Call Gemini API
+	url := fmt.Sprintf("%s?key=%s", GeminiBaseURL, key)
+	resp, err := http.Post(url, "application/json", bytes.NewBuffer(jsonData))
+	if err != nil {
+		return "", fmt.Errorf("connecting to Gemini API: %v", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("gemini API returned status: %s, body: %s", resp.Status, string(body))
+	}
+
+	// 3. Parse Response
+	body, _ := io.ReadAll(resp.Body)
+	var gResp GeminiResponse
+	if err := json.Unmarshal(body, &gResp); err != nil {
+		return "", fmt.Errorf("parsing Gemini response: %v", err)
+	}
+
+	if len(gResp.Candidates) > 0 && len(gResp.Candidates[0].Content.Parts) > 0 {
+		return gResp.Candidates[0].Content.Parts[0].Text, nil
+	}
+
+	return "", fmt.Errorf("empty response from Gemini")
+}
+
+func cleanOutput(text string) string {
+	// Simple removal of <think>...</think> blocks common in reasoning models
+	// Note: A robust implementation would use a regex or parser
+	if start := strings.Index(text, "<think>"); start != -1 {
+		if end := strings.Index(text, "</think>"); end != -1 {
+			return strings.TrimSpace(text[end+8:])
 		}
 	}
 	return text

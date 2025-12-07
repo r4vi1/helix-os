@@ -1,10 +1,18 @@
-import os
-import requests
-import sys
+```python
+# Helper Config for HelixOS
 
-# Default Ollama URL
-OLLAMA_URL = os.getenv("HELIX_OLLAMA_URL", "http://localhost:11434/api/generate")
-OLLAMA_HOST = os.getenv("HELIX_OLLAMA_HOST", "http://localhost:11434")
+import os
+import sys
+import subprocess
+import requests
+
+# --- Configuration ---
+HELIX_MODEL = os.getenv("HELIX_MODEL")
+OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+
+# Hybrid Intelligence Config
+HELIX_SUB_AGENT_PROVIDER = os.getenv("HELIX_SUB_AGENT_PROVIDER", "local") # local | cloud
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 def get_installed_models():
     """

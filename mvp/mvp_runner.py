@@ -1,11 +1,11 @@
 import time
 import subprocess
 try:
-    from config import MODEL_NAME
+    from config import MODEL_NAME, HELIX_SUB_AGENT_PROVIDER, GEMINI_API_KEY
     from mvp_whisper import transcribe_audio
     from mvp_router import route_intent
 except ImportError:
-    from .config import MODEL_NAME
+    from .config import MODEL_NAME, HELIX_SUB_AGENT_PROVIDER, GEMINI_API_KEY
     from .mvp_whisper import transcribe_audio
     from .mvp_router import route_intent
 
@@ -14,14 +14,31 @@ def execute_sub_agent(task_spec):
     Spawns a transient Docker container to execute the task.
     """
     print(f"[*] Spawning Sub-Agent for task: {task_spec[:50]}...")
-    
+
+    # Build the command arguments
+    cmd = [
+        "docker", "run", "--rm", 
+        "helix-agent-go", 
+        "--task", task_spec,
+        "--provider", HELIX_SUB_AGENT_PROVIDER
+    ]
+
+    # Handle Provider-specific args
+    if HELIX_SUB_AGENT_PROVIDER == "cloud":
+        if not GEMINI_API_KEY:
+            print("[!] Error: HELIX_SUB_AGENT_PROVIDER is 'cloud' but GEMINI_API_KEY is not set.")
+            return
+        # Pass API key securely via env var
+        cmd.extend(["-e", f"GEMINI_API_KEY={GEMINI_API_KEY}"])
+    else:
+        # Local Ollama Provider
+        cmd.extend(["--model", MODEL_NAME])
+
     try:
-        # Run the Go-based sub-agent container
-        # --rm: Remove container after exit
-        # --network host: Access host's Ollama (Linux) or use host.docker.internal (Mac/Win)
-        # Note: On Mac, --network host doesn't work the same way, but host.docker.internal is available by default.
+        # Run the container
+        # Note: --network host for Linux, host.docker.internal for Mac inside container logic
         result = subprocess.run(
-            ["docker", "run", "--rm", "helix-agent-go", "--task", task_spec, "--model", MODEL_NAME],
+            cmd,
             capture_output=True,
             text=True,
             check=True
