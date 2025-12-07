@@ -53,36 +53,50 @@ class AgentSearchTool:
     def search(self, task_description):
         """
         Searches for an agent that matches the task description based on metadata.
-        Returns the image name (e.g., 'localhost:5000/agent-fibonacci:latest') or None.
+        Returns the image name (e.g., 'localhost:5001/agent-fibonacci:latest') or None.
         """
         print(f"[*] Searching registry for agent matching: '{task_description}'")
         agents = self.list_agents()
         
+        if not agents:
+            print("[*] No agents in registry.")
+            return None
+        
+        # Stop words to filter out
+        stop_words = {"the", "a", "an", "of", "to", "for", "and", "or", "in", "on", "at", "is", "it", "be", "as"}
+        
+        # Extract significant keywords from task
+        task_keywords = set(word.lower() for word in task_description.split() if word.lower() not in stop_words and len(word) > 2)
+        
         best_match = None
-        # Simple fuzzy match for MVP. In production, use LLM or Vector DB.
-        # Check if any keyword in task description matches 'helix.task' label
-        task_keywords = set(task_description.lower().split())
+        best_score = 0
         
         for agent in agents:
             metadata = self.get_agent_metadata(agent)
             agent_task = metadata.get("helix.task", "").lower()
-            capabilities = metadata.get("helix.capabilities", "").lower()
             
-            # Basic keyword overlap check
-            score = 0
-            if agent_task:
-                score += sum(1 for word in task_keywords if word in agent_task) * 2
-            if capabilities:
-                score += sum(1 for word in task_keywords if word in capabilities)
+            if not agent_task:
+                continue
+            
+            # Extract keywords from stored task
+            agent_keywords = set(word.lower() for word in agent_task.split() if word.lower() not in stop_words and len(word) > 2)
+            
+            # Calculate overlap ratio (Jaccard-like similarity)
+            if agent_keywords and task_keywords:
+                intersection = task_keywords.intersection(agent_keywords)
+                union = task_keywords.union(agent_keywords)
+                score = len(intersection) / len(union) if union else 0
                 
-            if score > 0:
-                print(f"    -> Candidate: {agent} (Score: {score}) | Task: {agent_task}")
-                if best_match is None or score > best_match[1]:
-                    best_match = (agent, score)
+                print(f"    -> Candidate: {agent} | Stored Task: '{agent_task[:50]}...' | Overlap: {len(intersection)}/{len(union)} = {score:.2f}")
+                
+                if score > best_score:
+                    best_score = score
+                    best_match = agent
 
-        if best_match:
-            print(f"[*] Found match: {best_match[0]}")
-            return f"localhost:5001/{best_match[0]}:latest"
+        # Threshold: At least 50% keyword overlap to consider it a match
+        if best_match and best_score >= 0.5:
+            print(f"[*] Found match: {best_match} (Score: {best_score:.2f})")
+            return f"localhost:5001/{best_match}:latest"
             
-        print("[*] No suitable agent found in registry.")
+        print(f"[*] No suitable agent found in registry (best score: {best_score:.2f}).")
         return None

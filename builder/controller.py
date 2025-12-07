@@ -59,11 +59,11 @@ class SubAgentController:
                 agent_name = "agent-" + str(int(time.time()))
                 metadata = {
                     "task": task_description,
-                    "capabilities": "generated, tinygo", # FIXED: Added 'capabilities' key for dockerizer
+                    "capabilities": "gemini-proxy, net-enabled",
                     "helix.task": task_description,
                     "helix.created": str(time.time()),
-                    "helix.capabilities": "generated, tinygo",
-                    "helix.author": "gemini-3-pro-preview"
+                    "helix.capabilities": "gemini-proxy, net-enabled",
+                    "helix.author": "gemini-2.5-flash"
                 }
 
                 print(f"    -> [Image Init] Building Docker Image... (Attempt {attempt_p2+1})")
