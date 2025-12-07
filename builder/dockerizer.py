@@ -58,3 +58,26 @@ ENTRYPOINT ["/agent"]
             except subprocess.CalledProcessError as e:
                 print(f"[!] Docker Build/Push Failed: {e.stderr.decode()}")
                 raise
+
+    def verify_image(self, image_tag):
+        """
+        Verifies that the image can run and is valid (not segfaulting immediately).
+        Returns True if successful, raises Exception if not.
+        """
+        print(f"[*] Verifying image {image_tag}...")
+        try:
+            # We run it with a dummy argument to see if it starts up and handles args.
+            # We expect a success (0) or a handled error (maybe 1), but not 139 (SEGV).
+            cmd = ["docker", "run", "--rm", image_tag, "verify_startup"]
+            result = subprocess.run(cmd, capture_output=True, text=True)
+            
+            if result.returncode == 139:
+                raise Exception(f"SIGSEGV (139) detected during verification of {image_tag}")
+            if result.returncode == 126 or result.returncode == 127:
+                raise Exception(f"Command execution error ({result.returncode}) - possibly arch mismatch")
+                
+            print(f"[*] Verification Passed (Exit Code: {result.returncode})")
+            return True
+        except Exception as e:
+            print(f"[!] Verification Failed: {e}")
+            raise

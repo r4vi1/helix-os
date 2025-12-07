@@ -47,48 +47,8 @@ class CodeGenerator:
             "contents": [{"parts": [{"text": prompt}]}]
         }
 
-        # Model Priority List
-        models = [
-            "gemini-3-pro-preview",
-            "gemini-2.5-pro",
-            "gemini-2.5-flash"
-        ]
-
-        # 1. Try Real Models
-        if self.api_key:
-            for model in models:
-                try:
-                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={self.api_key}"
-                    print(f"    -> [LLM] Trying model: {model}...")
-                    
-                    response = requests.post(url, json=payload)
-                    response.raise_for_status()
-                    
-                    result = response.json()
-                    code = result["candidates"][0]["content"]["parts"][0]["text"]
-                    
-                    # Clean up markdown if present
-                    code = code.replace("```go", "").replace("```", "").strip()
-                    return code
-                    
-                except requests.exceptions.HTTPError as e:
-                    if e.response.status_code == 429:
-                        print(f"    [!] Rate Limit (429) hit for {model}. Trying fallback...")
-                        continue # Try next model
-                    elif e.response.status_code == 404:
-                         print(f"    [!] Model {model} not found or access denied. Trying fallback...")
-                         continue
-                    else:
-                        print(f"    [!] API Error with {model}: {e}")
-                        # Don't break immediately, try next just in case
-                        continue
-                except Exception as e:
-                    print(f"    [!] Unexpected error with {model}: {e}")
-                    continue
-
-        # 2. Fallback to Mock
-        print("[!] All LLM attempts failed or API Key missing. Using Mock Generator.")
-        return self._mock_generator(task_spec)
+        # Call the LLM helper
+        return self._call_llm(payload)
 
     def _mock_generator(self, task_spec):
         if "fibonacci" in task_spec.lower():
@@ -118,4 +78,57 @@ func main() {
 	fmt.Printf(`{"input": %d, "result": %d}`, n, res)
 }
 """
-        return """package main; import "fmt"; func main() { fmt.Println("Hello, Agent!") }"""
+    def fix_code(self, faulty_code, error_log):
+        """
+        Asks the LLM to fix the provided Go code based on the compiler error log.
+        """
+        print(f"[*] Asking LLM to fix code based on error...")
+        prompt = f"""
+        You are an expert Golang developer. The following code failed to compile or run.
+        
+        CODE:
+        ```go
+        {faulty_code}
+        ```
+        
+        ERROR:
+        {error_log}
+        
+        Task: Fix the code to resolve the error. Ensure it remains a standalone main package using only standard library.
+        Checking `len(os.Args)` is CRITICAL.
+        
+        Output ONLY the raw Go code. No markdown, no explanation.
+        """
+        
+        payload = {
+            "contents": [{"parts": [{"text": prompt}]}]
+        }
+        
+        # Reuse the existing model fallback logic if possible, or simple call
+        # For simplicity in this step, replicating the model call logic briefly or refactoring
+        # to a private method would be best. Let's call the same logic.
+        
+        return self._call_llm(payload)
+
+    def _call_llm(self, payload):
+        """ Helper to call LLM with fallback strategy """
+        models = [
+            "gemini-3-pro-preview",
+            "gemini-2.5-pro",
+            "gemini-2.5-flash"
+        ]
+        
+        if self.api_key:
+            for model in models:
+                try:
+                    url = f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent?key={self.api_key}"
+                    response = requests.post(url, json=payload)
+                    response.raise_for_status()
+                    result = response.json()
+                    code = result["candidates"][0]["content"]["parts"][0]["text"]
+                    return code.replace("```go", "").replace("```", "").strip()
+                except Exception as e:
+                    print(f"    [!] Retrying model {model} due to error: {e}")
+                    continue
+                    
+        return self._mock_generator("fix_code_fallback")
