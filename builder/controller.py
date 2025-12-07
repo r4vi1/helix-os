@@ -53,32 +53,35 @@ class SubAgentController:
                     raise
 
         # --- Phase 2: Containerization & Verification ---
-        # Note: metadata dictionary bugfix included here
-        agent_name = "agent-" + str(int(time.time()))
-        metadata = {
-            "task": task_description, # FIXED: Added 'task' key which was missing
-            "helix.task": task_description,
-            "helix.created": str(time.time()),
-            "helix.capabilities": "generated, tinygo",
-            "helix.author": "gemini-3-pro-preview"
-        }
+        attempt_p2 = 0
+        while attempt_p2 <= max_retries:
+            try:
+                agent_name = "agent-" + str(int(time.time()))
+                metadata = {
+                    "task": task_description,
+                    "capabilities": "generated, tinygo", # FIXED: Added 'capabilities' key for dockerizer
+                    "helix.task": task_description,
+                    "helix.created": str(time.time()),
+                    "helix.capabilities": "generated, tinygo",
+                    "helix.author": "gemini-3-pro-preview"
+                }
 
-        # Build but don't push yet (in a real registry we might push a temp tag, 
-        # but here we build local then push)
-        # We need to modify dockerizer to support verify before push if possible,
-        # but our current dockerizer builds and pushes in one go.
-        # For this step, we will use the verification method we added.
-        
-        try:
-            image_tag = self.dockerizer.build_and_push(binary_data, agent_name, metadata)
-            
-            # Verify
-            self.dockerizer.verify_image(image_tag)
-            
-            print(f"[*] Agent successfully created and verified: {image_tag}")
-            return image_tag
-            
-        except Exception as e:
-            print(f"[!] Container Verification failed: {e}")
-            # In a full implemented controller, we might retry the whole loop here too.
-            raise
+                print(f"    -> [Image Init] Building Docker Image... (Attempt {attempt_p2+1})")
+                image_tag = self.dockerizer.build_and_push(binary_data, agent_name, metadata)
+                
+                # Verify
+                self.dockerizer.verify_image(image_tag)
+                
+                print(f"[*] Agent successfully created and verified: {image_tag}")
+                return image_tag
+                
+            except Exception as e:
+                print(f"    [!] Phase 2 (Container/Verify) Error: {e}")
+                attempt_p2 += 1
+                if attempt_p2 <= max_retries:
+                    print("    -> [Retry] Retrying Docker build & Verification...")
+                    time.sleep(1) # Short backoff
+                    continue
+                else:
+                    print("[!] Max retries reached for Container Phase.")
+                    raise
