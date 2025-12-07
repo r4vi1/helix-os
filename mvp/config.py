@@ -9,6 +9,7 @@ import requests
 # --- Configuration ---
 HELIX_MODEL = os.getenv("HELIX_MODEL")
 OLLAMA_HOST = os.getenv("OLLAMA_HOST", "http://localhost:11434")
+OLLAMA_URL = f"{OLLAMA_HOST}/api/generate"
 
 # Hybrid Intelligence Config
 HELIX_SUB_AGENT_PROVIDER = os.getenv("HELIX_SUB_AGENT_PROVIDER", "local") # local | cloud
