@@ -39,71 +39,88 @@ class SubAgentController:
 
     def classify_task(self, refined_task):
         """
-        Step 2: Classify the task to determine the best agent type and tools.
+        Step 2: Classify the task using DETERMINISTIC keyword matching.
+        No LLM calls - predictable and consistent.
         """
-        print(f"    -> [Classify] Determining agent type for: '{refined_task}'")
+        print(f"    -> [Classify] Determining agent type for: '{refined_task[:80]}...'")
         
-        # In a real system, this would be an LLM call. For MVP, we'll use a strong prompt.
-        prompt = f"""
-        You are a System Architect. Classify the following task into one of the available agent types.
+        task_lower = refined_task.lower()
         
-        Task: "{refined_task}"
+        # RESEARCH patterns - highest priority for information gathering
+        research_keywords = [
+            "research", "history", "find out", "look up", "search for",
+            "what is", "who is", "when did", "where is", "how did",
+            "facts about", "information about", "tell me about",
+            "investigate", "discover", "learn about", "explore",
+            "timeline", "origins", "evolution", "development of"
+        ]
         
-        CLASSIFICATION RULES (IN ORDER OF PRIORITY):
+        # COMPUTE patterns - math and logic
+        compute_keywords = [
+            "calculate", "compute", "fibonacci", "sum", "multiply",
+            "divide", "subtract", "add", "math", "equation",
+            "factorial", "prime", "average", "percentage", "solve"
+        ]
         
-        1. **research_agent**: Use when the task involves:
-           - Researching, investigating, or looking up information
-           - Finding facts, history, or data about a topic
-           - Tasks containing words like: "research", "history", "find out", "look up", "facts about"
-           - Example: "Research the history of the internet" → research_agent
-           - Requires: GOOGLE_SEARCH_API_KEY
+        # DATA patterns - structured data manipulation
+        data_keywords = [
+            "fetch data", "parse json", "parse csv", "transform data",
+            "api call", "extract from", "convert format", "data from"
+        ]
         
-        2. **compute_agent**: Use when the task involves:
-           - Math calculations, logic, algorithms
-           - Tasks containing: "calculate", "compute", "fibonacci", "sum", "multiply"
-           - Requires: None
+        # CODE patterns - code generation
+        code_keywords = [
+            "write code", "generate code", "create script", "program",
+            "function to", "implement", "code snippet", "write a function"
+        ]
         
-        3. **data_agent**: Use when the task involves:
-           - Fetching or transforming structured data (JSON, CSV, APIs)
-           - Tasks containing: "fetch", "parse", "transform", "API call"
-           - Requires: None
+        # SYNTHESIS patterns - pure creative/reasoning (lowest priority)
+        synthesis_keywords = [
+            "write a poem", "write a story", "creative writing",
+            "opinion on", "your thoughts", "imagine", "compose"
+        ]
         
-        4. **code_agent**: Use when the task involves:
-           - Writing or executing code snippets
-           - Tasks containing: "write code", "generate code", "script"
-           - Requires: None
+        # Check in priority order
+        if any(kw in task_lower for kw in research_keywords):
+            agent_type = "research_agent"
+            required_apis = ["GOOGLE_SEARCH_API_KEY"]
+            reasoning = "Task involves researching or finding information"
+        elif any(kw in task_lower for kw in compute_keywords):
+            agent_type = "compute_agent"
+            required_apis = []
+            reasoning = "Task involves mathematical computation"
+        elif any(kw in task_lower for kw in data_keywords):
+            agent_type = "data_agent"
+            required_apis = []
+            reasoning = "Task involves data fetching or transformation"
+        elif any(kw in task_lower for kw in code_keywords):
+            agent_type = "code_agent"
+            required_apis = []
+            reasoning = "Task involves code generation"
+        elif any(kw in task_lower for kw in synthesis_keywords):
+            agent_type = "synthesis_agent"
+            required_apis = ["GEMINI_API_KEY"]
+            reasoning = "Task involves pure creative synthesis"
+        else:
+            # Default to research for any informational task, synthesis for unknown
+            # If task contains question words, assume research
+            if any(q in task_lower for q in ["what", "who", "when", "where", "why", "how"]):
+                agent_type = "research_agent"
+                required_apis = ["GOOGLE_SEARCH_API_KEY"]
+                reasoning = "Question-based task defaults to research"
+            else:
+                agent_type = "synthesis_agent"
+                required_apis = ["GEMINI_API_KEY"]
+                reasoning = "Default fallback for unknown task type"
         
-        5. **synthesis_agent**: Use ONLY when the task involves:
-           - Pure creative writing, opinion, or analysis with NO external data needed
-           - Tasks like: "write a poem", "explain a concept I know", "analyze this text"
-           - Requires: GEMINI_API_KEY
-        
-        IMPORTANT: If unsure between research_agent and synthesis_agent, prefer research_agent.
-        
-        Output valid JSON ONLY:
-        {{
-            "agent_type": "research_agent",
-            "required_apis": ["API_NAME"],
-            "reasoning": "One sentence reason"
-        }}
-        """
-        response_json = self._call_llm(prompt)
-        
-        # Clean JSON markdown if present
-        if "```json" in response_json:
-            response_json = response_json.split("```json")[1].split("```")[0].strip()
-        elif "```" in response_json:
-            response_json = response_json.split("```")[1].split("```")[0].strip()
-
-        import json
-        try:
-            classification = json.loads(response_json)
-        except json.JSONDecodeError:
-            print(f"    [!] Failed to parse classification JSON. Defaulting to synthesis_agent.")
-            classification = {
-                "agent_type": "synthesis_agent", 
-                "required_apis": ["GEMINI_API_KEY"], 
-                "reasoning": "Fallback due to parse error"
+        classification = {
+            "agent_type": agent_type,
+            "required_apis": required_apis,
+            "reasoning": reasoning
+        }
+            
+        print(f"    -> [Classify] Type: {classification['agent_type']} | APIs: {classification.get('required_apis')}")
+        return classification
             }
             
         print(f"    -> [Classify] Type: {classification['agent_type']} | APIs: {classification.get('required_apis')}")
