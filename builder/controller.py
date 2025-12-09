@@ -121,10 +121,6 @@ class SubAgentController:
             
         print(f"    -> [Classify] Type: {classification['agent_type']} | APIs: {classification.get('required_apis')}")
         return classification
-            }
-            
-        print(f"    -> [Classify] Type: {classification['agent_type']} | APIs: {classification.get('required_apis')}")
-        return classification
 
     def create_agent(self, raw_task_description):
         """
