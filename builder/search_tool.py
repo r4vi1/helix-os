@@ -100,6 +100,7 @@ class AgentSearchTool:
         stop_words = {"the", "a", "an", "of", "to", "for", "and", "or", "in", "on", "at", "is", "it", "be", "as"}
         
         # Extract significant keywords from task
+        task_lower = task_description.lower()
         task_keywords = set(word.lower() for word in task_description.split() if word.lower() not in stop_words and len(word) > 2)
         
         best_match = None
