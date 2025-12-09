@@ -48,6 +48,9 @@ class CodeGenerator:
             - You are a Gemini Proxy. Call the Gemini API.
             - Input: A complex query.
             - Logic: Forward query to Gemini and return response.
+            - CRITICAL: The API endpoint MUST be exactly: 
+              https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=<API_KEY>
+            - Do NOT use "gemini-pro" or any other model name. Use "gemini-2.5-flash" ONLY.
             """
         
         apis_str = ", ".join(required_apis)
