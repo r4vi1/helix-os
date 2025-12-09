@@ -14,6 +14,7 @@ OLLAMA_URL = f"{OLLAMA_HOST}/api/generate"
 # Hybrid Intelligence Config
 HELIX_SUB_AGENT_PROVIDER = os.getenv("HELIX_SUB_AGENT_PROVIDER", "local") # local | cloud
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+GOOGLE_SEARCH_API_KEY = os.getenv("GOOGLE_SEARCH_API_KEY")
 
 def get_installed_models():
     """

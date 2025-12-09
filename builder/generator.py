@@ -20,30 +20,60 @@ class CodeGenerator:
     def __init__(self, api_key=GEMINI_API_KEY):
         self.api_key = api_key
 
-    def generate_go_code(self, task_spec):
+    def generate_go_code(self, task_spec, agent_type="synthesis_agent", required_apis=None, output_schema=None):
         """
-        Generates robust, TinyGo-compatible Go code for the given task.
+        Generates specialized Go code based on agent type and requirements.
         """
-        print(f"[*] Generating Go code for: {task_spec}")
+        print(f"[*] Generating Go code for: {task_spec} (Type: {agent_type})")
         
+        if required_apis is None:
+            required_apis = []
+        
+        # specific instructions based on agent type
+        type_instructions = ""
+        if agent_type == "research_agent":
+            type_instructions = """
+            - You MUST access the Google Search API (or SerpAPI) using the provided API Key.
+            - Input: A search query string.
+            - Logic: Perform a search, extract snippets/URLs.
+            """
+        elif agent_type == "compute_agent":
+            type_instructions = """
+            - You MUST perform precise mathematical calculations or logic.
+            - Input: A math expression or logic problem.
+            - Logic: Parse the input and compute the result using relevant math libraries.
+            """
+        elif agent_type == "synthesis_agent":
+            type_instructions = """
+            - You are a Gemini Proxy. Call the Gemini API.
+            - Input: A complex query.
+            - Logic: Forward query to Gemini and return response.
+            """
+        
+        apis_str = ", ".join(required_apis)
+        schema_str = json.dumps(output_schema, indent=2) if output_schema else "{}"
+
         prompt = f"""
-        You are an expert Golang developer. Generate a Go program that acts as a proxy to the Gemini AI API.
+        You are an expert Golang developer. Generate a specialized Go agent.
         
         Task Context: {task_spec}
+        Agent Type: {agent_type}
+        Required APIs to use: {apis_str}
         
-        The program MUST:
-        1. Be a standalone `package main` using ONLY the standard library (`net/http`, `encoding/json`, `os`, `fmt`, `io`, `bytes`).
-        2. Read the query from `os.Args[1]` (check `len(os.Args)` first, return JSON error if missing).
-        3. Read the API key from the `GEMINI_API_KEY` environment variable (`os.Getenv`).
-        4. Make an HTTP POST request to: `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=<API_KEY>`
-        5. The request body must be JSON: {{"contents": [{{"parts": [{{"text": "<user_query>"}}]}}]}}
-        6. Parse the JSON response and extract the text from: response["candidates"][0]["content"]["parts"][0]["text"]
-        7. Output the final result as JSON to stdout: {{"query": "<original_query>", "result": "<gemini_response>"}}
-        8. Handle errors gracefully (network issues, API errors, missing key) and return JSON error objects.
-        9. Set appropriate Content-Type header: application/json.
-        10. Use `io.ReadAll` (not `ioutil.ReadAll` which is deprecated).
+        Type-Specific Logic:
+        {type_instructions}
+
+        Requirements:
+        1. Standalone `package main` using ONLY standard library (net/http, encoding/json, etc).
+        2. Input: Read `os.Args[1]` as the primary input (query/expression). Check len(os.Args).
+        3. Authentication: Read required API keys from environment variables: {apis_str}.
+        4. Output: The program MUST output JSON to stdout adhering strictly to this schema:
+        {schema_str}
         
-        Output ONLY the raw Go code. No markdown, no explanation, no backticks.
+        5. Error Handling: Return a JSON object with an "error" key if anything fails.
+        6. HTTP Client: Use `http.Client` with timeout ($10s$).
+        
+        Output ONLY the raw Go code. No markdown.
         """
         
         payload = {
@@ -113,8 +143,12 @@ func main() {
         
         return self._call_llm(payload)
 
-    def _call_llm(self, payload):
+    def _call_llm(self, payload_or_prompt):
         """ Helper to call LLM with fallback strategy """
+        if isinstance(payload_or_prompt, str):
+            payload = {"contents": [{"parts": [{"text": payload_or_prompt}]}]}
+        else:
+            payload = payload_or_prompt
         models = [
             "gemini-3-pro-preview",
             "gemini-2.5-pro",
