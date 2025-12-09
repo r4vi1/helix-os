@@ -45,16 +45,40 @@ class SubAgentController:
         
         # In a real system, this would be an LLM call. For MVP, we'll use a strong prompt.
         prompt = f"""
-        You are an System Architect. Classify the following task into one of the available agent types.
+        You are a System Architect. Classify the following task into one of the available agent types.
         
         Task: "{refined_task}"
         
-        Available Types:
-        - research_agent: Web search, fact checking, synthesis (Needs: GOOGLE_SEARCH_API_KEY)
-        - compute_agent: Math, logic, precise calculations (Needs: None)
-        - data_agent: Fetching, parsing, transforming data (Needs: None)
-        - code_agent: Generating or executing code (Needs: None)
-        - synthesis_agent: Creative writing, analysis, reasoning (Needs: GEMINI_API_KEY)
+        CLASSIFICATION RULES (IN ORDER OF PRIORITY):
+        
+        1. **research_agent**: Use when the task involves:
+           - Researching, investigating, or looking up information
+           - Finding facts, history, or data about a topic
+           - Tasks containing words like: "research", "history", "find out", "look up", "facts about"
+           - Example: "Research the history of the internet" → research_agent
+           - Requires: GOOGLE_SEARCH_API_KEY
+        
+        2. **compute_agent**: Use when the task involves:
+           - Math calculations, logic, algorithms
+           - Tasks containing: "calculate", "compute", "fibonacci", "sum", "multiply"
+           - Requires: None
+        
+        3. **data_agent**: Use when the task involves:
+           - Fetching or transforming structured data (JSON, CSV, APIs)
+           - Tasks containing: "fetch", "parse", "transform", "API call"
+           - Requires: None
+        
+        4. **code_agent**: Use when the task involves:
+           - Writing or executing code snippets
+           - Tasks containing: "write code", "generate code", "script"
+           - Requires: None
+        
+        5. **synthesis_agent**: Use ONLY when the task involves:
+           - Pure creative writing, opinion, or analysis with NO external data needed
+           - Tasks like: "write a poem", "explain a concept I know", "analyze this text"
+           - Requires: GEMINI_API_KEY
+        
+        IMPORTANT: If unsure between research_agent and synthesis_agent, prefer research_agent.
         
         Output valid JSON ONLY:
         {{
