@@ -33,9 +33,14 @@ class CodeGenerator:
         type_instructions = ""
         if agent_type == "research_agent":
             type_instructions = """
-            - You MUST access the Google Search API (or SerpAPI) using the provided API Key.
+            - You MUST use the Google Custom Search JSON API.
+            - API Endpoint: https://www.googleapis.com/customsearch/v1
+            - Parameters: key=<GOOGLE_SEARCH_API_KEY>, cx=<SEARCH_ENGINE_ID>, q=<query>
+            - Read GOOGLE_SEARCH_API_KEY from environment variable.
+            - Read GOOGLE_SEARCH_CX from environment variable (Search Engine ID).
             - Input: A search query string.
-            - Logic: Perform a search, extract snippets/URLs.
+            - Logic: Make HTTP GET request, parse JSON response, extract titles and snippets.
+            - Do NOT use SerpAPI. Use Google Custom Search API ONLY.
             """
         elif agent_type == "compute_agent":
             type_instructions = """
@@ -152,9 +157,8 @@ func main() {
             payload = {"contents": [{"parts": [{"text": payload_or_prompt}]}]}
         else:
             payload = payload_or_prompt
+        # Only use gemini-2.5-flash - other models not supported by current API key
         models = [
-            "gemini-3-pro-preview",
-            "gemini-2.5-pro",
             "gemini-2.5-flash"
         ]
         

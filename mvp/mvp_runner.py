@@ -51,7 +51,7 @@ def handle_complex_task(task_spec):
         print(f"    -> [EXEC] Running {agent_image}...")
         try:
             # Import config to get API keys
-            from mvp.config import GEMINI_API_KEY, GOOGLE_SEARCH_API_KEY
+            from mvp.config import GEMINI_API_KEY, GOOGLE_SEARCH_API_KEY, GOOGLE_SEARCH_CX
             
             # Build docker run command with API keys
             cmd = ["docker", "run", "--rm"]
@@ -60,6 +60,8 @@ def handle_complex_task(task_spec):
                 cmd.extend(["-e", f"GEMINI_API_KEY={GEMINI_API_KEY}"])
             if GOOGLE_SEARCH_API_KEY:
                 cmd.extend(["-e", f"GOOGLE_SEARCH_API_KEY={GOOGLE_SEARCH_API_KEY}"])
+            if GOOGLE_SEARCH_CX:
+                cmd.extend(["-e", f"GOOGLE_SEARCH_CX={GOOGLE_SEARCH_CX}"])
                 
             cmd.append(agent_image)
             

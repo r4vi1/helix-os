@@ -15,6 +15,7 @@ OLLAMA_URL = f"{OLLAMA_HOST}/api/generate"
 HELIX_SUB_AGENT_PROVIDER = os.getenv("HELIX_SUB_AGENT_PROVIDER", "local") # local | cloud
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 GOOGLE_SEARCH_API_KEY = os.getenv("GOOGLE_SEARCH_API_KEY")
+GOOGLE_SEARCH_CX = os.getenv("GOOGLE_SEARCH_CX")  # Custom Search Engine ID
 
 def get_installed_models():
     """
