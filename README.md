@@ -23,17 +23,49 @@ To build an open, privacy-preserving alternative to cloud-locked AI assistants b
 ## 🛠️ Tech Stack
 
 - **Core**: Python 3.10+
-- **Orchestration**: Docker (Moving to K3s in v2)
-- **Sub-Agents**: Go (Golang) + Scratch images
-- **LLM**: DeepSeek-R1 / Llama 3
+- **LLM**: Gemma 3 / DeepSeek-R1 (via Ollama)
 - **STT**: OpenAI Whisper
+- **Sub-Agents**: Go 1.21+ (Containerized)
+- **Orchestration**: Docker (MVP runs as local processes)
 
-## Technology Stack
-*   **Python**: The primary language for the agent runtime and Whisper integration.
-*   **K3s**: Lightweight Kubernetes for orchestration.
-*   **Docker**: Containerization for sub-agents.
-*   **NATS/MQTT**: Low-latency messaging bus.
-*   **Tailscale**: Network mesh for secure device communication.
+## 🚀 Getting Started
+
+This guide will help you get the Minimum Viable Product (MVP) of HelixOS running on your local machine.
+
+### Prerequisites
+*   Python 3.10+
+*   A microphone
+
+### Installation
+
+1.  **Clone the repository:**
+    ```bash
+    git clone https://github.com/your-username/helix-os.git
+    cd helix-os
+    ```
+
+2.  **Install dependencies:**
+    ```bash
+    python3 -m venv venv
+    source venv/bin/activate
+    pip install -r mvp/requirements.txt
+    ```
+
+3.  **Run the MVP:**
+    ```bash
+    python mvp/mvp_runner.py
+    ```
+
+## 🤝 Contributing
+
+We welcome contributions to help build the future of open-source, distributed AI!
+
+### How to Contribute
+1.  **Fork the repository** on GitHub.
+2.  **Create a feature branch** for your changes.
+3.  **Submit a Pull Request (PR)** with a clear description of your work.
+
+For more details on coding conventions and open issues, please see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Roadmap
 1.  **MVP**: Basic loop with Audio -> Whisper -> Router -> Stub Execution.

@@ -20,15 +20,28 @@ class Dockerizer:
                 f.write(binary_data)
             os.chmod(agent_path, 0o755)
             
-            # Create Dockerfile
-            labels = " \\\n".join([f'"{k}"="{v}"' for k, v in metadata.items()])
+            # Sanitize label values (remove markdown, quotes, newlines, special chars)
+            import re
+            def sanitize_label(value):
+                # Remove markdown bold/italic
+                value = re.sub(r'\*+', '', value)
+                # Remove quotes and newlines
+                value = value.replace('"', "'").replace('\n', ' ').replace('\r', ' ')
+                # Collapse multiple spaces
+                value = re.sub(r'\s+', ' ', value)
+                # Truncate to reasonable length for labels
+                return value[:200].strip()
             
+            safe_task = sanitize_label(metadata.get('task', ''))
+            safe_capabilities = sanitize_label(metadata.get('capabilities', ''))
+            
+            # Create Dockerfile
             dockerfile_content = f"""
 FROM gcr.io/distroless/static:nonroot
 WORKDIR /
 COPY agent /agent
-LABEL helix.task="{metadata['task']}"
-LABEL helix.capabilities="{metadata['capabilities']}"
+LABEL helix.task="{safe_task}"
+LABEL helix.capabilities="{safe_capabilities}"
 ENTRYPOINT ["/agent"]
 """
             

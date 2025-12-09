@@ -23,24 +23,58 @@ class AgentSearchTool:
     def get_agent_metadata(self, agent_name, tag="latest"):
         """
         Fetches the metadata (labels) for a specific agent image.
+        Handles both OCI indexes (multi-arch) and single manifests.
         """
         try:
-            # 1. Get Manifest to find config blob digest
+            # 1. First try OCI Index (for multi-arch images built by buildx)
             manifest_url = f"{self.registry_url}/{agent_name}/manifests/{tag}"
-            headers = {"Accept": "application/vnd.docker.distribution.manifest.v2+json"}
+            
+            # Try OCI index first
+            headers = {"Accept": "application/vnd.oci.image.index.v1+json"}
             response = requests.get(manifest_url, headers=headers)
-            response.raise_for_status()
-            manifest = response.json()
             
-            config_digest = manifest["config"]["digest"]
+            if response.status_code == 200:
+                index = response.json()
+                
+                # If it's an index, get the first real manifest (skip attestation)
+                if "manifests" in index:
+                    for m in index.get("manifests", []):
+                        # Skip attestation manifests
+                        if m.get("annotations", {}).get("vnd.docker.reference.type") == "attestation-manifest":
+                            continue
+                        # Get platform-specific manifest
+                        manifest_digest = m["digest"]
+                        break
+                    else:
+                        return {}
+                    
+                    # 2. Get the platform-specific manifest
+                    manifest_url = f"{self.registry_url}/{agent_name}/manifests/{manifest_digest}"
+                    headers = {"Accept": "application/vnd.oci.image.manifest.v1+json"}
+                    response = requests.get(manifest_url, headers=headers)
+                    response.raise_for_status()
+                    manifest = response.json()
+                else:
+                    manifest = index  # Single manifest, not an index
+
+            else:
+                # Fallback to Docker v2 manifest
+                headers = {"Accept": "application/vnd.docker.distribution.manifest.v2+json"}
+                response = requests.get(manifest_url, headers=headers)
+                response.raise_for_status()
+                manifest = response.json()
             
-            # 2. Get Config Blob
+            # 3. Get Config Blob
+            config_digest = manifest.get("config", {}).get("digest")
+            if not config_digest:
+                return {}
+                
             blob_url = f"{self.registry_url}/{agent_name}/blobs/{config_digest}"
             response = requests.get(blob_url)
             response.raise_for_status()
             config_data = response.json()
             
-            # 3. Extract Labels
+            # 4. Extract Labels
             return config_data.get("config", {}).get("Labels", {})
             
         except Exception as e:
@@ -66,6 +100,7 @@ class AgentSearchTool:
         stop_words = {"the", "a", "an", "of", "to", "for", "and", "or", "in", "on", "at", "is", "it", "be", "as"}
         
         # Extract significant keywords from task
+        task_lower = task_description.lower()
         task_keywords = set(word.lower() for word in task_description.split() if word.lower() not in stop_words and len(word) > 2)
         
         best_match = None
@@ -87,14 +122,25 @@ class AgentSearchTool:
                 union = task_keywords.union(agent_keywords)
                 score = len(intersection) / len(union) if union else 0
                 
-                print(f"    -> Candidate: {agent} | Stored Task: '{agent_task[:50]}...' | Overlap: {len(intersection)}/{len(union)} = {score:.2f}")
+                # Bonus: If agent name contains keyword from task (e.g., "research" in both)
+                agent_name_lower = agent.lower()
+                for kw in ["research", "compute", "data", "code", "synthesis"]:
+                    if kw in task_lower and kw in agent_name_lower:
+                        score += 0.3  # Significant bonus for type match
+                        break
+                
+                # Bonus: Prefer helix-prefixed agents (newer, more reliable)
+                if agent_name_lower.startswith("helix-"):
+                    score += 0.5  # Strong preference for helix agents
+                
+                print(f"    -> Candidate: {agent} | Stored Task: '{agent_task[:50]}...' | Score: {score:.2f}")
                 
                 if score > best_score:
                     best_score = score
                     best_match = agent
 
-        # Threshold: At least 50% keyword overlap to consider it a match
-        if best_match and best_score >= 0.5:
+        # Threshold: At least 20% keyword overlap to consider it a match (lowered from 50%)
+        if best_match and best_score >= 0.2:
             print(f"[*] Found match: {best_match} (Score: {best_score:.2f})")
             return f"localhost:5001/{best_match}:latest"
             
