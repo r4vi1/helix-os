@@ -74,7 +74,7 @@ class CodeGenerator:
         {schema_str}
         
         5. Error Handling: Return a JSON object with an "error" key if anything fails.
-        6. HTTP Client: Use `http.Client` with timeout ($10s$).
+        6. HTTP Client: Use `http.Client` with timeout of 120 seconds (2 minutes) to handle slow API responses.
         
         Output ONLY the raw Go code. No markdown.
         """
