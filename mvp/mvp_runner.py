@@ -82,9 +82,13 @@ def handle_complex_task(task_spec):
             
             if not result.stdout and not result.stderr:
                 print("    -> [WARN] No output captured from agent.")
+            
+            # Return the agent output for further processing by main agent
+            return result.stdout.strip() if result.stdout else None
                 
         except Exception as e:
             print(f"    [!] Error running container: {e}")
+            return None
 
 def execute_action(intent):
     """

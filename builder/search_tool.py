@@ -129,6 +129,10 @@ class AgentSearchTool:
                         score += 0.3  # Significant bonus for type match
                         break
                 
+                # Bonus: Prefer helix-prefixed agents (newer, more reliable)
+                if agent_name_lower.startswith("helix-"):
+                    score += 0.5  # Strong preference for helix agents
+                
                 print(f"    -> Candidate: {agent} | Stored Task: '{agent_task[:50]}...' | Score: {score:.2f}")
                 
                 if score > best_score:
