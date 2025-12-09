@@ -62,11 +62,15 @@ class CodeGenerator:
         schema_str = json.dumps(output_schema, indent=2) if output_schema else "{}"
 
         prompt = f"""
-        You are an expert Golang developer. Generate a specialized Go agent.
+        You are an expert Golang developer. Generate a GENERIC, REUSABLE Go agent.
         
-        Task Context: {task_spec}
         Agent Type: {agent_type}
         Required APIs to use: {apis_str}
+        
+        CRITICAL: This agent must be REUSABLE for ANY query of its type.
+        - Do NOT hardcode any specific topic, query, or task.
+        - The agent receives its query/input at RUNTIME via os.Args[1].
+        - Example: A research agent should research WHATEVER topic is passed via os.Args[1].
         
         Type-Specific Logic:
         {type_instructions}
@@ -74,12 +78,13 @@ class CodeGenerator:
         Requirements:
         1. Standalone `package main` using ONLY standard library (net/http, encoding/json, etc).
         2. Input: Read `os.Args[1]` as the primary input (query/expression). Check len(os.Args).
+           - This is the RUNTIME query - use this for API calls, not any hardcoded value.
         3. Authentication: Read required API keys from environment variables: {apis_str}.
         4. Output: The program MUST output JSON to stdout adhering strictly to this schema:
         {schema_str}
         
         5. Error Handling: Return a JSON object with an "error" key if anything fails.
-        6. HTTP Client: Use `http.Client` with timeout of 120 seconds (2 minutes) to handle slow API responses.
+        6. HTTP Client: Use `http.Client` with timeout of 120 seconds (2 minutes).
         
         Output ONLY the raw Go code. No markdown.
         """
