@@ -147,7 +147,9 @@ class SubAgentController:
         attempt_p2 = 0
         while attempt_p2 <= max_retries:
             try:
-                agent_name = "agent-" + str(int(time.time()))
+                # Semantic naming: helix-research-agent, helix-compute-agent, etc.
+                type_short = agent_type.replace("_agent", "")
+                agent_name = f"helix-{type_short}-agent-{int(time.time())}"
                 metadata = {
                     "task": refined_task, # Use refined task
                     "capabilities": f"{agent_type}, net-enabled",
