@@ -55,8 +55,18 @@ def handle_complex_task(task_spec):
 
     search_tool = AgentSearchTool()
     
+    # --- Memory: Start tracking this task ---
+    if memory:
+        memory.start_task(
+            raw_task=task_spec,
+            refined_task=task_spec,  # Will be refined by controller if building
+            agent_type="unknown"  # Will be updated when we know
+        )
+    
     # 1. Search Logic (query memory first, then Docker registry)
     print(f"    -> [SEARCH] Looking for existing agent...")
+    
+    agent_source = "new"  # Track where agent came from
     
     # Check memory for similar past tasks
     if memory:
@@ -64,10 +74,15 @@ def handle_complex_task(task_spec):
         if similar and similar[0].outcome == "success" and similar[0].agent_image:
             print(f"    -> [MEMORY HIT] Found successful past execution")
             agent_image = similar[0].agent_image
+            agent_source = "memory"
         else:
             agent_image = search_tool.search(task_spec)
+            if agent_image:
+                agent_source = "registry"
     else:
         agent_image = search_tool.search(task_spec)
+        if agent_image:
+            agent_source = "registry"
     
     if agent_image:
         print(f"    -> [FOUND] Using cached agent: {agent_image}")
@@ -77,12 +92,19 @@ def handle_complex_task(task_spec):
         controller = SubAgentController(memory_manager=memory)
         try:
             agent_image = controller.create_agent(task_spec)
+            agent_source = "built"
             print(f"    -> [BUILT] New agent ready: {agent_image}")
         except Exception as e:
+            # Store failure in memory
+            if memory:
+                memory.complete_task(outcome="failure", error_message=str(e))
             print(f"    [!] Build Failed: {e}")
             return
 
     # 3. Execution Logic
+    import time
+    start_time = time.time()
+    
     if agent_image:
         print(f"    -> [EXEC] Running {agent_image}...")
         try:
@@ -107,6 +129,8 @@ def handle_complex_task(task_spec):
             # Run without check=True to handle non-zero exits gracefully
             result = subprocess.run(cmd, capture_output=True, text=True)
             
+            execution_time = int((time.time() - start_time) * 1000)
+            
             # Print the output regardless of exit code
             if result.stdout:
                 print(f"    -> [RESULT]: {result.stdout.strip()}")
@@ -119,10 +143,26 @@ def handle_complex_task(task_spec):
             if not result.stdout and not result.stderr:
                 print("    -> [WARN] No output captured from agent.")
             
+            # --- Memory: Store execution result (for cached agents) ---
+            # Only store if we didn't already store via controller.create_agent()
+            if memory and agent_source != "built":
+                outcome = "success" if result.returncode == 0 else "failure"
+                summary = result.stdout.strip()[:500] if result.stdout else "No output"
+                memory.complete_task(
+                    outcome=outcome,
+                    result_summary=summary,
+                    execution_time_ms=execution_time,
+                    agent_image=agent_image
+                )
+                print(f"    -> [MEMORY] Stored execution in episodic memory")
+            
             # Return the agent output for further processing by main agent
             return result.stdout.strip() if result.stdout else None
                 
         except Exception as e:
+            # Store failure
+            if memory and agent_source != "built":
+                memory.complete_task(outcome="failure", error_message=str(e))
             print(f"    [!] Error running container: {e}")
             return None
 
