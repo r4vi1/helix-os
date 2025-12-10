@@ -86,6 +86,21 @@ def handle_complex_task(task_spec):
     
     if agent_image:
         print(f"    -> [FOUND] Using cached agent: {agent_image}")
+        
+        # --- Refine prompt for cached agent using memory context ---
+        refined_task = task_spec
+        if memory:
+            # Get context from past experiences
+            context = memory.format_context_for_prompt(task_spec)
+            if context:
+                print(f"    -> [CONTEXT] Enriching prompt with past experiences")
+                # Combine original task with context hints
+                refined_task = f"{task_spec}\n\nContext: {context}"
+                
+            # Update the working memory with refined task
+            current_task = memory.working.get_current_task()
+            if current_task:
+                current_task.refined_task = refined_task
     else:
         print(f"    -> [MISS] No suitable agent found. Initiating Build Process.")
         # 2. Build Logic (with memory integration)
@@ -93,6 +108,7 @@ def handle_complex_task(task_spec):
         try:
             agent_image = controller.create_agent(task_spec)
             agent_source = "built"
+            refined_task = task_spec  # Controller does its own refinement
             print(f"    -> [BUILT] New agent ready: {agent_image}")
         except Exception as e:
             # Store failure in memory
@@ -123,8 +139,8 @@ def handle_complex_task(task_spec):
                 
             cmd.append(agent_image)
             
-            # Pass the task specification as the first argument to the agent
-            cmd.append(task_spec)
+            # Pass the REFINED task as the argument (includes context for cached agents)
+            cmd.append(refined_task)
 
             # Run without check=True to handle non-zero exits gracefully
             result = subprocess.run(cmd, capture_output=True, text=True)
