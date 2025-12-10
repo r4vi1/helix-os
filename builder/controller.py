@@ -188,12 +188,13 @@ class SubAgentController:
         while attempt <= max_retries:
             try:
                 if not current_code:
-                    # Pass full context to generator
+                    # Pass full context (including memory) to generator
                     current_code = self.generator.generate_go_code(
                         task_spec=refined_task,
                         agent_type=agent_type,
                         required_apis=required_apis,
-                        output_schema=output_schema
+                        output_schema=output_schema,
+                        memory_context=context
                     )
                 
                 print(f"    -> [Build attempt {attempt+1}] Compiling...")
