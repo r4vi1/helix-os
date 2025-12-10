@@ -3,11 +3,27 @@ from .generator import CodeGenerator
 from .compiler import Compiler
 from .dockerizer import Dockerizer
 
+# Memory system integration
+try:
+    from memory import MemoryManager
+    MEMORY_AVAILABLE = True
+except ImportError:
+    MEMORY_AVAILABLE = False
+    print("[WARN] Memory module not available. Running without memory.")
+
 class SubAgentController:
-    def __init__(self):
+    def __init__(self, memory_manager=None):
         self.generator = CodeGenerator()
         self.compiler = Compiler()
         self.dockerizer = Dockerizer()
+        
+        # Memory integration
+        if memory_manager:
+            self.memory = memory_manager
+        elif MEMORY_AVAILABLE:
+            self.memory = MemoryManager()
+        else:
+            self.memory = None
 
     def _call_llm(self, prompt):
         """Helper to call Gemini for internal controller logic."""
@@ -128,8 +144,14 @@ class SubAgentController:
         1. Refine Task
         2. Classify (Select Agent Type & Tools)
         3. Build & Deploy (Loop)
+        
+        With memory integration:
+        - Starts tracking task in working memory
+        - Injects context from past experiences
+        - Stores result in episodic memory on completion
         """
         print(f"[*] Sub-Agent Controller: Processing request '{raw_task_description}'")
+        start_time = time.time()
         
         # 1. Refine
         refined_task = self.refine_task(raw_task_description)
@@ -138,6 +160,20 @@ class SubAgentController:
         classification = self.classify_task(refined_task)
         agent_type = classification["agent_type"]
         required_apis = classification.get("required_apis", [])
+        
+        # --- Memory: Start tracking task ---
+        if self.memory:
+            self.memory.start_task(
+                raw_task=raw_task_description,
+                refined_task=refined_task,
+                agent_type=agent_type
+            )
+            # Get context from past experiences for prompt injection
+            context = self.memory.format_context_for_prompt(refined_task, agent_type)
+            if context:
+                print(f"    -> [Memory] Injecting context from {len(self.memory.recall(refined_task, 'episodic', limit=3))} past experiences")
+        else:
+            context = ""
         
         # Load schema
         from .schemas import AGENT_SCHEMAS
@@ -203,6 +239,17 @@ class SubAgentController:
                 # Verify
                 self.dockerizer.verify_image(image_tag)
                 
+                # --- Memory: Store success ---
+                if self.memory:
+                    execution_time = int((time.time() - start_time) * 1000)
+                    self.memory.complete_task(
+                        outcome="success",
+                        result_summary=f"Created agent: {image_tag}",
+                        execution_time_ms=execution_time,
+                        agent_image=image_tag
+                    )
+                    print(f"    -> [Memory] Task stored in episodic memory")
+                
                 print(f"[*] Agent successfully created and verified: {image_tag}")
                 return image_tag
                 
@@ -214,5 +261,14 @@ class SubAgentController:
                     time.sleep(1) # Short backoff
                     continue
                 else:
+                    # --- Memory: Store failure ---
+                    if self.memory:
+                        execution_time = int((time.time() - start_time) * 1000)
+                        self.memory.complete_task(
+                            outcome="failure",
+                            error_message=str(e),
+                            execution_time_ms=execution_time
+                        )
                     print("[!] Max retries reached for Container Phase.")
                     raise
+

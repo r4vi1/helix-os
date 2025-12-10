@@ -1,19 +1,45 @@
 import time
 import subprocess
 try:
-    from config import MODEL_NAME, HELIX_SUB_AGENT_PROVIDER, GEMINI_API_KEY
+    from config import MODEL_NAME, HELIX_SUB_AGENT_PROVIDER, GEMINI_API_KEY, MEMORY_DB_PATH, MEMORY_BUFFER_MINUTES
     from mvp_whisper import transcribe_audio
     from mvp_router import route_intent
 except ImportError:
-    from .config import MODEL_NAME, HELIX_SUB_AGENT_PROVIDER, GEMINI_API_KEY
+    from .config import MODEL_NAME, HELIX_SUB_AGENT_PROVIDER, GEMINI_API_KEY, MEMORY_DB_PATH, MEMORY_BUFFER_MINUTES
     from .mvp_whisper import transcribe_audio
     from .mvp_router import route_intent
+
+# Global memory manager (initialized once)
+_memory_manager = None
+
+def get_memory_manager():
+    """Get or create the global memory manager."""
+    global _memory_manager
+    if _memory_manager is None:
+        try:
+            import sys
+            import os
+            sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            from memory import MemoryManager
+            _memory_manager = MemoryManager(
+                db_path=MEMORY_DB_PATH,
+                buffer_minutes=MEMORY_BUFFER_MINUTES
+            )
+            print("[*] Memory system initialized")
+        except ImportError as e:
+            print(f"[WARN] Memory system not available: {e}")
+            _memory_manager = None
+    return _memory_manager
 
 def handle_complex_task(task_spec):
     """
     Uses the Agent Builder ecosystem (Search -> Build -> Run) to solve a task.
+    Now with memory integration for learning and context.
     """
     print(f"[*] Handling Complex Task: {task_spec[:50]}...")
+    
+    # Get shared memory manager
+    memory = get_memory_manager()
     
     # Lazy import to avoid circular dependency issues at top level if any
     try:
@@ -29,16 +55,26 @@ def handle_complex_task(task_spec):
 
     search_tool = AgentSearchTool()
     
-    # 1. Search Logic
+    # 1. Search Logic (query memory first, then Docker registry)
     print(f"    -> [SEARCH] Looking for existing agent...")
-    agent_image = search_tool.search(task_spec)
+    
+    # Check memory for similar past tasks
+    if memory:
+        similar = memory.recall(task_spec, memory_type="episodic", limit=1)
+        if similar and similar[0].outcome == "success" and similar[0].agent_image:
+            print(f"    -> [MEMORY HIT] Found successful past execution")
+            agent_image = similar[0].agent_image
+        else:
+            agent_image = search_tool.search(task_spec)
+    else:
+        agent_image = search_tool.search(task_spec)
     
     if agent_image:
         print(f"    -> [FOUND] Using cached agent: {agent_image}")
     else:
         print(f"    -> [MISS] No suitable agent found. Initiating Build Process.")
-        # 2. Build Logic
-        controller = SubAgentController()
+        # 2. Build Logic (with memory integration)
+        controller = SubAgentController(memory_manager=memory)
         try:
             agent_image = controller.create_agent(task_spec)
             print(f"    -> [BUILT] New agent ready: {agent_image}")
