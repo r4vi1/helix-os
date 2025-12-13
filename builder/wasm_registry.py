@@ -3,6 +3,7 @@ WASM Registry
 =============
 Directory-based registry for WebAssembly modules.
 Mirrors the Docker registry interface for consistency.
+Supports hybrid keyword + semantic search.
 """
 
 import os
@@ -10,8 +11,8 @@ import json
 import shutil
 from pathlib import Path
 from datetime import datetime, timezone
-from typing import Optional, Dict, List
-from dataclasses import dataclass, asdict
+from typing import Optional, Dict, List, Tuple
+from dataclasses import dataclass, asdict, field
 
 
 @dataclass
@@ -23,6 +24,7 @@ class WASMManifest:
     capabilities: List[str] = None
     created: str = None
     wasm_file: str = "agent.wasm"
+    embedding: List[float] = None  # Semantic embedding for task description
     
     def __post_init__(self):
         if self.capabilities is None:
@@ -299,3 +301,115 @@ class WASMRegistry:
         print(f"[*] No suitable WASM agent found (best score: {best_score:.2f}).")
         return None
 
+    def semantic_search(
+        self, 
+        task_description: str, 
+        alpha: float = 0.5
+    ) -> Tuple[Optional[str], float]:
+        """
+        Hybrid search combining keyword matching and semantic similarity.
+        
+        Args:
+            task_description: The task to search for
+            alpha: Weight for keyword score (1-alpha for semantic)
+                   0.0 = pure semantic, 1.0 = pure keyword, 0.5 = balanced
+        
+        Returns:
+            Tuple of (agent_name, combined_score) or (None, 0.0)
+        """
+        print(f"[*] Semantic search for: '{task_description}'")
+        agents = self.list_agents()
+        
+        if not agents:
+            print("[*] No WASM agents in registry.")
+            return None, 0.0
+        
+        # Import embeddings module
+        try:
+            from memory.embeddings import embed, similarity
+            embeddings_available = True
+        except ImportError:
+            print("[WARN] Embeddings not available, falling back to keyword-only search.")
+            embeddings_available = False
+            alpha = 1.0  # Force keyword-only
+        
+        # Compute query embedding if available
+        query_embedding = None
+        if embeddings_available and alpha < 1.0:
+            query_embedding = embed(task_description)
+        
+        # Stop words for keyword matching
+        stop_words = {"the", "a", "an", "of", "to", "for", "and", "or", "in", "on", "at", "is", "it", "be", "as", "with"}
+        task_keywords = self._extract_stemmed_keywords(task_description, stop_words)
+        task_lower = task_description.lower()
+        
+        best_match = None
+        best_score = 0.0
+        
+        for agent in agents:
+            manifest = self.get_manifest(agent)
+            if not manifest or not manifest.task:
+                continue
+            
+            # Keyword score (Jaccard similarity with stemming)
+            agent_keywords = self._extract_stemmed_keywords(manifest.task, stop_words)
+            keyword_score = 0.0
+            if agent_keywords and task_keywords:
+                intersection = task_keywords.intersection(agent_keywords)
+                union = task_keywords.union(agent_keywords)
+                keyword_score = len(intersection) / len(union) if union else 0
+                
+                # Bonus for type match in agent name
+                agent_name_lower = agent.lower()
+                for kw in ["research", "compute", "data", "code", "synthesis", "math", "text"]:
+                    if kw in task_lower and kw in agent_name_lower:
+                        keyword_score = min(1.0, keyword_score + 0.3)
+                        break
+            
+            # Semantic score (cosine similarity)
+            semantic_score = 0.0
+            if embeddings_available and query_embedding and alpha < 1.0:
+                agent_embedding = manifest.embedding
+                if agent_embedding:
+                    semantic_score = similarity(query_embedding, agent_embedding)
+                else:
+                    # Compute on-the-fly if not stored
+                    agent_embedding = embed(manifest.task)
+                    semantic_score = similarity(query_embedding, agent_embedding)
+            
+            # Combined score
+            combined_score = (alpha * keyword_score) + ((1 - alpha) * semantic_score)
+            
+            print(f"    -> {agent} | KW: {keyword_score:.2f} | Sem: {semantic_score:.2f} | Combined: {combined_score:.2f}")
+            
+            if combined_score > best_score:
+                best_score = combined_score
+                best_match = agent
+        
+        # Threshold for match
+        if best_match and best_score >= 0.2:
+            print(f"[*] Found semantic match: {best_match} (Score: {best_score:.2f})")
+            return best_match, best_score
+        
+        print(f"[*] No suitable agent found (best: {best_score:.2f}).")
+        return None, best_score
+
+    def store_with_embedding(
+        self, 
+        agent_name: str, 
+        wasm_binary: bytes, 
+        manifest: WASMManifest
+    ) -> str:
+        """
+        Store a WASM module with pre-computed embedding for semantic search.
+        """
+        # Compute embedding for task description
+        try:
+            from memory.embeddings import embed
+            if not manifest.embedding:
+                manifest.embedding = embed(manifest.task)
+                print(f"[*] Computed embedding for '{manifest.task[:30]}...'")
+        except ImportError:
+            print("[WARN] Embeddings not available, storing without embedding.")
+        
+        return self.store(agent_name, wasm_binary, manifest)

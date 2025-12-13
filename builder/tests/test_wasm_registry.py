@@ -337,5 +337,89 @@ class TestStemming:
         assert WASMRegistry._stem("analyze") == WASMRegistry._stem("analyzing")
 
 
+class TestSemanticSearch:
+    """Tests for semantic search functionality."""
+    
+    @pytest.fixture
+    def temp_registry(self):
+        temp_dir = tempfile.mkdtemp()
+        registry = WASMRegistry(registry_path=temp_dir)
+        yield registry
+        shutil.rmtree(temp_dir, ignore_errors=True)
+    
+    @pytest.fixture
+    def sample_wasm(self):
+        return b'\x00asm\x01\x00\x00\x00'
+    
+    def test_semantic_search_with_alpha_1_is_keyword_only(self, temp_registry, sample_wasm):
+        """Test that alpha=1.0 produces keyword-only search."""
+        manifest = WASMManifest(
+            name="math-agent",
+            task="calculate mathematical operations"
+        )
+        temp_registry.store("math-agent", sample_wasm, manifest)
+        
+        # alpha=1.0 should use only keywords
+        result, score = temp_registry.semantic_search(
+            "calculate math problem", 
+            alpha=1.0
+        )
+        
+        assert result == "math-agent"
+        assert score > 0
+    
+    def test_semantic_search_returns_tuple(self, temp_registry, sample_wasm):
+        """Test that semantic_search returns (name, score) tuple."""
+        manifest = WASMManifest(name="test", task="test task")
+        temp_registry.store("test", sample_wasm, manifest)
+        
+        result = temp_registry.semantic_search("test task")
+        
+        assert isinstance(result, tuple)
+        assert len(result) == 2
+    
+    def test_semantic_search_empty_registry(self, temp_registry):
+        """Test semantic search on empty registry."""
+        result, score = temp_registry.semantic_search("any query")
+        assert result is None
+        assert score == 0.0
+    
+    def test_semantic_search_finds_conceptual_match(self, temp_registry, sample_wasm):
+        """Test that semantic search can find conceptually related tasks."""
+        # Store an agent with specific terminology
+        manifest = WASMManifest(
+            name="fibonacci-generator",
+            task="generate fibonacci number sequence"
+        )
+        temp_registry.store("fibonacci-generator", sample_wasm, manifest)
+        
+        # Search with different but related terminology
+        # With alpha=0.5, semantic component should help
+        result, score = temp_registry.semantic_search(
+            "calculate fibonacci series",
+            alpha=0.5
+        )
+        
+        # Should still find the agent (fibonacci matches)
+        assert result == "fibonacci-generator"
+    
+    def test_store_with_embedding(self, temp_registry, sample_wasm):
+        """Test storing agent with pre-computed embedding."""
+        manifest = WASMManifest(
+            name="embedded-agent",
+            task="perform calculations"
+        )
+        
+        # store_with_embedding should work even if embeddings unavailable
+        path = temp_registry.store_with_embedding(
+            "embedded-agent", 
+            sample_wasm, 
+            manifest
+        )
+        
+        assert path is not None
+        assert "embedded-agent" in temp_registry.list_agents()
+
+
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
