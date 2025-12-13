@@ -1,5 +1,13 @@
+# Core MVP dependencies
 openai-whisper
 sounddevice
 numpy
 scipy
 requests
+
+# Memory system dependencies (recommended)
+sentence-transformers
+keyring
+
+# Memory system encryption (optional - requires Python 3.12 or earlier)
+# sqlcipher3

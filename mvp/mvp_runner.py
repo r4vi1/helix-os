@@ -1,19 +1,45 @@
 import time
 import subprocess
 try:
-    from config import MODEL_NAME, HELIX_SUB_AGENT_PROVIDER, GEMINI_API_KEY
+    from config import MODEL_NAME, HELIX_SUB_AGENT_PROVIDER, GEMINI_API_KEY, MEMORY_DB_PATH, MEMORY_BUFFER_MINUTES
     from mvp_whisper import transcribe_audio
     from mvp_router import route_intent
 except ImportError:
-    from .config import MODEL_NAME, HELIX_SUB_AGENT_PROVIDER, GEMINI_API_KEY
+    from .config import MODEL_NAME, HELIX_SUB_AGENT_PROVIDER, GEMINI_API_KEY, MEMORY_DB_PATH, MEMORY_BUFFER_MINUTES
     from .mvp_whisper import transcribe_audio
     from .mvp_router import route_intent
+
+# Global memory manager (initialized once)
+_memory_manager = None
+
+def get_memory_manager():
+    """Get or create the global memory manager."""
+    global _memory_manager
+    if _memory_manager is None:
+        try:
+            import sys
+            import os
+            sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+            from memory import MemoryManager
+            _memory_manager = MemoryManager(
+                db_path=MEMORY_DB_PATH,
+                buffer_minutes=MEMORY_BUFFER_MINUTES
+            )
+            print("[*] Memory system initialized")
+        except ImportError as e:
+            print(f"[WARN] Memory system not available: {e}")
+            _memory_manager = None
+    return _memory_manager
 
 def handle_complex_task(task_spec):
     """
     Uses the Agent Builder ecosystem (Search -> Build -> Run) to solve a task.
+    Now with memory integration for learning and context.
     """
     print(f"[*] Handling Complex Task: {task_spec[:50]}...")
+    
+    # Get shared memory manager
+    memory = get_memory_manager()
     
     # Lazy import to avoid circular dependency issues at top level if any
     try:
@@ -29,24 +55,72 @@ def handle_complex_task(task_spec):
 
     search_tool = AgentSearchTool()
     
-    # 1. Search Logic
+    # --- Memory: Start tracking this task ---
+    if memory:
+        memory.start_task(
+            raw_task=task_spec,
+            refined_task=task_spec,  # Will be refined by controller if building
+            agent_type="unknown"  # Will be updated when we know
+        )
+    
+    # 1. Search Logic (query memory first, then Docker registry)
     print(f"    -> [SEARCH] Looking for existing agent...")
-    agent_image = search_tool.search(task_spec)
+    
+    agent_source = "new"  # Track where agent came from
+    
+    # Check memory for similar past tasks
+    if memory:
+        similar = memory.recall(task_spec, memory_type="episodic", limit=1)
+        if similar and similar[0].outcome == "success" and similar[0].agent_image:
+            print(f"    -> [MEMORY HIT] Found successful past execution")
+            agent_image = similar[0].agent_image
+            agent_source = "memory"
+        else:
+            agent_image = search_tool.search(task_spec)
+            if agent_image:
+                agent_source = "registry"
+    else:
+        agent_image = search_tool.search(task_spec)
+        if agent_image:
+            agent_source = "registry"
     
     if agent_image:
         print(f"    -> [FOUND] Using cached agent: {agent_image}")
+        
+        # --- Refine prompt for cached agent using memory context ---
+        refined_task = task_spec
+        if memory:
+            # Get context from past experiences
+            context = memory.format_context_for_prompt(task_spec)
+            if context:
+                print(f"    -> [CONTEXT] Enriching prompt with past experiences")
+                # Combine original task with context hints
+                refined_task = f"{task_spec}\n\nContext: {context}"
+                
+            # Update the working memory with refined task
+            current_task = memory.working.get_current_task()
+            if current_task:
+                current_task.refined_task = refined_task
     else:
         print(f"    -> [MISS] No suitable agent found. Initiating Build Process.")
-        # 2. Build Logic
-        controller = SubAgentController()
+        # 2. Build Logic (with memory integration)
+        controller = SubAgentController(memory_manager=memory)
         try:
             agent_image = controller.create_agent(task_spec)
+            agent_source = "built"
+            refined_task = task_spec  # Controller does its own refinement
             print(f"    -> [BUILT] New agent ready: {agent_image}")
         except Exception as e:
+            # Store failure in memory
+            if memory:
+                memory.complete_task(outcome="failure", error_message=str(e))
             print(f"    [!] Build Failed: {e}")
             return
 
     # 3. Execution Logic
+    import time
+    start_time = time.time()
+    
     if agent_image:
         print(f"    -> [EXEC] Running {agent_image}...")
         try:
@@ -65,11 +139,13 @@ def handle_complex_task(task_spec):
                 
             cmd.append(agent_image)
             
-            # Pass the task specification as the first argument to the agent
-            cmd.append(task_spec)
+            # Pass the REFINED task as the argument (includes context for cached agents)
+            cmd.append(refined_task)
 
             # Run without check=True to handle non-zero exits gracefully
             result = subprocess.run(cmd, capture_output=True, text=True)
+            
+            execution_time = int((time.time() - start_time) * 1000)
             
             # Print the output regardless of exit code
             if result.stdout:
@@ -83,10 +159,26 @@ def handle_complex_task(task_spec):
             if not result.stdout and not result.stderr:
                 print("    -> [WARN] No output captured from agent.")
             
+            # --- Memory: Store execution result (for cached agents) ---
+            # Only store if we didn't already store via controller.create_agent()
+            if memory and agent_source != "built":
+                outcome = "success" if result.returncode == 0 else "failure"
+                summary = result.stdout.strip()[:500] if result.stdout else "No output"
+                memory.complete_task(
+                    outcome=outcome,
+                    result_summary=summary,
+                    execution_time_ms=execution_time,
+                    agent_image=agent_image
+                )
+                print(f"    -> [MEMORY] Stored execution in episodic memory")
+            
             # Return the agent output for further processing by main agent
             return result.stdout.strip() if result.stdout else None
                 
         except Exception as e:
+            # Store failure
+            if memory and agent_source != "built":
+                memory.complete_task(outcome="failure", error_message=str(e))
             print(f"    [!] Error running container: {e}")
             return None
 

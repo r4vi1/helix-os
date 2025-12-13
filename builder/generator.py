@@ -20,9 +20,16 @@ class CodeGenerator:
     def __init__(self, api_key=GEMINI_API_KEY):
         self.api_key = api_key
 
-    def generate_go_code(self, task_spec, agent_type="synthesis_agent", required_apis=None, output_schema=None):
+    def generate_go_code(self, task_spec, agent_type="synthesis_agent", required_apis=None, output_schema=None, memory_context=""):
         """
         Generates specialized Go code based on agent type and requirements.
+        
+        Args:
+            task_spec: The task specification
+            agent_type: Type of agent to generate
+            required_apis: List of API keys needed
+            output_schema: Expected output JSON schema
+            memory_context: Context from memory system (past experiences, patterns)
         """
         print(f"[*] Generating Go code for: {task_spec} (Type: {agent_type})")
         
@@ -60,13 +67,23 @@ class CodeGenerator:
         
         apis_str = ", ".join(required_apis)
         schema_str = json.dumps(output_schema, indent=2) if output_schema else "{}"
+        
+        # Include memory context if available
+        context_section = ""
+        if memory_context:
+            context_section = f"""
+        Context from Past Experiences:
+        {memory_context}
+        
+        Use this context to improve your approach, but generate fresh code.
+        """
 
         prompt = f"""
         You are an expert Golang developer. Generate a GENERIC, REUSABLE Go agent.
         
         Agent Type: {agent_type}
         Required APIs to use: {apis_str}
-        
+        {context_section}
         CRITICAL: This agent must be REUSABLE for ANY query of its type.
         - Do NOT hardcode any specific topic, query, or task.
         - The agent receives its query/input at RUNTIME via os.Args[1].

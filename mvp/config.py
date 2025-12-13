@@ -65,3 +65,10 @@ def select_model():
 # Global Constants
 MODEL_NAME = select_model()
 print(f"[*] HelixOS Configuration Loaded. Using Model: {MODEL_NAME}")
+
+# --- Memory System Configuration ---
+MEMORY_DB_PATH = os.getenv("HELIX_MEMORY_DB", "~/.helix/memory.db")
+MEMORY_BUFFER_MINUTES = int(os.getenv("HELIX_MEMORY_BUFFER_MINUTES", "5"))
+MEMORY_CLEANUP_DAYS = int(os.getenv("HELIX_MEMORY_CLEANUP_DAYS", "30"))
+MEMORY_EMBEDDING_MODEL = os.getenv("HELIX_EMBEDDING_MODEL", "all-MiniLM-L6-v2")
+
