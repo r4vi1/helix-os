@@ -11,6 +11,14 @@ except ImportError:
     MEMORY_AVAILABLE = False
     print("[WARN] Memory module not available. Running without memory.")
 
+# Unified registry for hybrid K8s/WASM search
+try:
+    from .unified_registry import UnifiedAgentRegistry
+    UNIFIED_REGISTRY_AVAILABLE = True
+except ImportError:
+    UNIFIED_REGISTRY_AVAILABLE = False
+    print("[WARN] Unified registry not available. Building without search.")
+
 class SubAgentController:
     def __init__(self, memory_manager=None):
         self.generator = CodeGenerator()
@@ -24,6 +32,51 @@ class SubAgentController:
             self.memory = MemoryManager()
         else:
             self.memory = None
+        
+        # Unified registry for searching existing agents
+        if UNIFIED_REGISTRY_AVAILABLE:
+            self.unified_registry = UnifiedAgentRegistry()
+        else:
+            self.unified_registry = None
+
+    def _search_existing_agents(self, task: str, agent_type: str, required_apis: list) -> dict:
+        """
+        Search for existing agents that match the task.
+        Returns match info dict or None if no suitable agent found.
+        
+        Uses hybrid keyword + semantic search across both K8s and WASM registries.
+        Prefers WASM for pure compute tasks (faster execution).
+        """
+        if not self.unified_registry:
+            return None
+        
+        print(f"    -> [Search] Looking for existing agents...")
+        
+        # Check if task is suitable for WASM (no external APIs needed)
+        from .wasm_builder import is_wasm_suitable
+        wasm_suitable = is_wasm_suitable(task, required_apis)
+        
+        # Search unified registry
+        match = self.unified_registry.search(task)
+        
+        if match:
+            # Validate runtime suitability
+            if match.runtime == "wasm" and not wasm_suitable:
+                print(f"    -> [Search] WASM match found but task needs APIs, skipping...")
+                # Search again with K8s filter only
+                match = self.unified_registry.search(task, runtime_filter="k8s")
+            
+            if match:
+                print(f"    -> [Search] Found: {match.name} ({match.runtime}) - Score: {match.score:.2f}")
+                return {
+                    "name": match.name,
+                    "runtime": match.runtime,
+                    "reference": match.reference,
+                    "score": match.score
+                }
+        
+        print(f"    -> [Search] No existing agent found, will build new one.")
+        return None
 
     def _call_llm(self, prompt):
         """Helper to call Gemini for internal controller logic."""
@@ -160,6 +213,14 @@ class SubAgentController:
         classification = self.classify_task(refined_task)
         agent_type = classification["agent_type"]
         required_apis = classification.get("required_apis", [])
+        
+        # --- NEW: Search for existing agents before building ---
+        existing_agent = self._search_existing_agents(refined_task, agent_type, required_apis)
+        if existing_agent:
+            print(f"[*] Using existing agent: {existing_agent['reference']} ({existing_agent['runtime']})")
+            # TODO: Execute existing agent instead of creating new one
+            # For now, just return the reference for the caller to handle
+            return existing_agent['reference']
         
         # --- Memory: Start tracking task ---
         if self.memory:

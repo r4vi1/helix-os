@@ -43,7 +43,7 @@ class UnifiedAgentRegistry:
         self.k8s_registry = k8s_registry or AgentSearchTool()
         self.wasm_registry = wasm_registry or WASMRegistry()
     
-    def search(self, task_description: str) -> Optional[AgentMatch]:
+    def search(self, task_description: str, runtime_filter: str = None) -> Optional[AgentMatch]:
         """
         Search both registries for an agent matching the task.
         
@@ -52,14 +52,21 @@ class UnifiedAgentRegistry:
         
         Args:
             task_description: Description of the task to find an agent for
+            runtime_filter: Optional "k8s" or "wasm" to limit search to one registry
         
         Returns:
             AgentMatch with runtime type, or None if no match found
         """
         print(f"\n[*] Unified search for: '{task_description}'")
         
-        k8s_match = self._search_k8s(task_description)
-        wasm_match = self._search_wasm(task_description)
+        k8s_match = None
+        wasm_match = None
+        
+        # Search based on filter
+        if runtime_filter != "wasm":
+            k8s_match = self._search_k8s(task_description)
+        if runtime_filter != "k8s":
+            wasm_match = self._search_wasm(task_description)
         
         # If neither found anything
         if not k8s_match and not wasm_match:
