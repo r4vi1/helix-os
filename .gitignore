@@ -141,3 +141,8 @@ cython_debug/
 # Internal Documentation (temporarily commented for development)
 # PROJECT_STATUS.md
 # Main_idea.md
+
+# Internal design docs (not for public repo)
+Main_idea.md
+jarvis_architecture_deep_dive.md
+PROJECT_STATUS.md
