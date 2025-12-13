@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Helix Browser Node</title>
+    <style>
+        :root {
+            --bg-primary: #0a0a0f;
+            --bg-secondary: #12121a;
+            --text-primary: #e4e4e7;
+            --text-secondary: #a1a1aa;
+            --accent: #8b5cf6;
+            --accent-dim: #6d28d9;
+            --success: #22c55e;
+            --error: #ef4444;
+            --warning: #f59e0b;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            padding: 2rem;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        header {
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+        
+        h1 {
+            font-size: 2rem;
+            font-weight: 600;
+            margin-bottom: 0.5rem;
+        }
+        
+        h1 span {
+            color: var(--accent);
+        }
+        
+        .subtitle {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+        }
+        
+        .status-card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .status-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 1rem;
+        }
+        
+        .status-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .status-dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: var(--error);
+        }
+        
+        .status-dot.connected {
+            background: var(--success);
+            box-shadow: 0 0 10px var(--success);
+        }
+        
+        .controls {
+            display: flex;
+            gap: 0.75rem;
+        }
+        
+        button {
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            border: none;
+            cursor: pointer;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+        
+        .btn-primary {
+            background: var(--accent);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: var(--accent-dim);
+        }
+        
+        .btn-primary:disabled {
+            background: #4a4a5a;
+            cursor: not-allowed;
+        }
+        
+        .btn-secondary {
+            background: transparent;
+            color: var(--text-secondary);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .btn-secondary:hover {
+            border-color: var(--accent);
+            color: var(--accent);
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 1rem;
+        }
+        
+        .stat {
+            text-align: center;
+            padding: 1rem;
+            background: rgba(0,0,0,0.2);
+            border-radius: 8px;
+        }
+        
+        .stat-value {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: var(--accent);
+        }
+        
+        .stat-label {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-top: 0.25rem;
+        }
+        
+        .config-card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .config-card h3 {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            margin-bottom: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        .config-field {
+            margin-bottom: 1rem;
+        }
+        
+        .config-field label {
+            display: block;
+            font-size: 0.875rem;
+            margin-bottom: 0.5rem;
+            color: var(--text-secondary);
+        }
+        
+        .config-field input {
+            width: 100%;
+            padding: 0.75rem;
+            border-radius: 6px;
+            border: 1px solid rgba(255,255,255,0.1);
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            font-size: 0.875rem;
+        }
+        
+        .config-field input:focus {
+            outline: none;
+            border-color: var(--accent);
+        }
+        
+        .log-card {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 1.5rem;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+        
+        .log-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .log-header h3 {
+            font-size: 0.875rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+        
+        #log {
+            background: var(--bg-primary);
+            border-radius: 8px;
+            padding: 1rem;
+            height: 300px;
+            overflow-y: auto;
+            font-family: 'JetBrains Mono', 'Fira Code', monospace;
+            font-size: 0.75rem;
+            line-height: 1.6;
+        }
+        
+        .log-entry {
+            margin-bottom: 0.25rem;
+        }
+        
+        .log-entry.info { color: var(--text-secondary); }
+        .log-entry.success { color: var(--success); }
+        .log-entry.error { color: var(--error); }
+        .log-entry.task { color: var(--warning); }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Helix<span>OS</span> Browser Node</h1>
+            <p class="subtitle">Contribute compute resources to the distributed AI network</p>
+        </header>
+        
+        <div class="status-card">
+            <div class="status-header">
+                <div class="status-indicator">
+                    <div id="statusDot" class="status-dot"></div>
+                    <span id="statusText">Disconnected</span>
+                </div>
+                <div class="controls">
+                    <button id="connectBtn" class="btn-primary" onclick="toggleConnection()">Connect</button>
+                    <button class="btn-secondary" onclick="clearLog()">Clear Log</button>
+                </div>
+            </div>
+            
+            <div class="stats">
+                <div class="stat">
+                    <div id="tasksCompleted" class="stat-value">0</div>
+                    <div class="stat-label">Tasks Completed</div>
+                </div>
+                <div class="stat">
+                    <div id="uptime" class="stat-value">0s</div>
+                    <div class="stat-label">Uptime</div>
+                </div>
+                <div class="stat">
+                    <div id="avgTime" class="stat-value">--</div>
+                    <div class="stat-label">Avg Execution</div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="config-card">
+            <h3>Configuration</h3>
+            <div class="config-field">
+                <label for="natsUrl">NATS WebSocket URL</label>
+                <input type="text" id="natsUrl" value="ws://localhost:8080" placeholder="ws://localhost:8080">
+            </div>
+            <div class="config-field">
+                <label for="wasmUrl">WASM Base URL</label>
+                <input type="text" id="wasmUrl" value="/wasm/" placeholder="/wasm/">
+            </div>
+        </div>
+        
+        <div class="log-card">
+            <div class="log-header">
+                <h3>Activity Log</h3>
+            </div>
+            <div id="log"></div>
+        </div>
+    </div>
+    
+    <!-- NATS WebSocket client -->
+    <script src="https://unpkg.com/nats.ws@1.16.0/nats.js"></script>
+    <script src="helix-client.js"></script>
+    
+    <script>
+        let client = null;
+        let stats = {
+            tasksCompleted: 0,
+            totalExecutionTime: 0,
+            startTime: null
+        };
+        let uptimeInterval = null;
+        
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            const timestamp = new Date().toLocaleTimeString();
+            entry.textContent = `[${timestamp}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+        
+        function clearLog() {
+            document.getElementById('log').innerHTML = '';
+        }
+        
+        function updateStatus(connected) {
+            const dot = document.getElementById('statusDot');
+            const text = document.getElementById('statusText');
+            const btn = document.getElementById('connectBtn');
+            
+            if (connected) {
+                dot.classList.add('connected');
+                text.textContent = 'Connected';
+                btn.textContent = 'Disconnect';
+            } else {
+                dot.classList.remove('connected');
+                text.textContent = 'Disconnected';
+                btn.textContent = 'Connect';
+            }
+        }
+        
+        function updateStats() {
+            document.getElementById('tasksCompleted').textContent = stats.tasksCompleted;
+            
+            if (stats.tasksCompleted > 0) {
+                const avg = (stats.totalExecutionTime / stats.tasksCompleted).toFixed(0);
+                document.getElementById('avgTime').textContent = `${avg}ms`;
+            }
+        }
+        
+        function updateUptime() {
+            if (!stats.startTime) return;
+            const seconds = Math.floor((Date.now() - stats.startTime) / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            
+            let display;
+            if (hours > 0) {
+                display = `${hours}h ${minutes % 60}m`;
+            } else if (minutes > 0) {
+                display = `${minutes}m ${seconds % 60}s`;
+            } else {
+                display = `${seconds}s`;
+            }
+            document.getElementById('uptime').textContent = display;
+        }
+        
+        async function toggleConnection() {
+            if (client && client.isConnected) {
+                await client.disconnect();
+                client = null;
+                updateStatus(false);
+                log('Disconnected from NATS', 'info');
+                
+                if (uptimeInterval) {
+                    clearInterval(uptimeInterval);
+                    uptimeInterval = null;
+                }
+            } else {
+                try {
+                    const natsUrl = document.getElementById('natsUrl').value;
+                    const wasmUrl = document.getElementById('wasmUrl').value;
+                    
+                    client = new HelixBrowserClient({
+                        natsUrl: natsUrl,
+                        wasmBaseUrl: wasmUrl,
+                        onConnect: (info) => {
+                            updateStatus(true);
+                            log(`Connected as ${info.workerId}`, 'success');
+                            stats.startTime = Date.now();
+                            uptimeInterval = setInterval(updateUptime, 1000);
+                        },
+                        onDisconnect: () => {
+                            updateStatus(false);
+                            log('Connection closed', 'info');
+                        },
+                        onTask: (task) => {
+                            log(`Received task: ${task.task_id} (${task.wasm_path})`, 'task');
+                        },
+                        onResult: (result) => {
+                            if (result.success) {
+                                log(`Task ${result.task_id} completed in ${result.execution_time_ms.toFixed(0)}ms`, 'success');
+                                stats.tasksCompleted++;
+                                stats.totalExecutionTime += result.execution_time_ms;
+                            } else {
+                                log(`Task ${result.task_id} failed: ${result.error}`, 'error');
+                            }
+                            updateStats();
+                        },
+                        onError: (error) => {
+                            log(`Error: ${error}`, 'error');
+                        }
+                    });
+                    
+                    log('Connecting to NATS...', 'info');
+                    await client.connect();
+                    
+                } catch (error) {
+                    log(`Connection failed: ${error.message}`, 'error');
+                }
+            }
+        }
+        
+        // Initial log
+        log('Helix Browser Node ready. Click "Connect" to join the compute pool.', 'info');
+    </script>
+</body>
+</html>

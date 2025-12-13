@@ -138,6 +138,6 @@ cython_debug/
 .vscode/
 .idea/
 
-# Internal Documentation
-PROJECT_STATUS.md
-Main_idea.md
+# Internal Documentation (temporarily commented for development)
+# PROJECT_STATUS.md
+# Main_idea.md
