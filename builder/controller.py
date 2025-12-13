@@ -19,6 +19,14 @@ except ImportError:
     UNIFIED_REGISTRY_AVAILABLE = False
     print("[WARN] Unified registry not available. Building without search.")
 
+# WASM executor for running WASM agents
+try:
+    from .wasm_executor import LocalWASMExecutor
+    WASM_EXECUTOR_AVAILABLE = True
+except ImportError:
+    WASM_EXECUTOR_AVAILABLE = False
+    print("[WARN] WASM executor not available.")
+
 class SubAgentController:
     def __init__(self, memory_manager=None):
         self.generator = CodeGenerator()
@@ -38,6 +46,12 @@ class SubAgentController:
             self.unified_registry = UnifiedAgentRegistry()
         else:
             self.unified_registry = None
+        
+        # WASM executor for local WASM execution
+        if WASM_EXECUTOR_AVAILABLE:
+            self.wasm_executor = LocalWASMExecutor()
+        else:
+            self.wasm_executor = None
 
     def _search_existing_agents(self, task: str, agent_type: str, required_apis: list) -> dict:
         """
@@ -77,6 +91,38 @@ class SubAgentController:
         
         print(f"    -> [Search] No existing agent found, will build new one.")
         return None
+
+    def execute_wasm_agent(self, agent_name: str, input_data: str) -> dict:
+        """
+        Execute a WASM agent locally.
+        
+        Args:
+            agent_name: Name of the WASM agent in registry
+            input_data: Input to pass to the agent
+            
+        Returns:
+            Dict with success, output, error, and execution_time keys
+        """
+        if not self.wasm_executor:
+            return {"success": False, "error": "WASM executor not available"}
+        
+        # Get WASM path from registry
+        from .wasm_registry import WASMRegistry
+        wasm_registry = WASMRegistry()
+        wasm_path = wasm_registry.get_wasm_path(agent_name)
+        
+        if not wasm_path:
+            return {"success": False, "error": f"WASM agent '{agent_name}' not found in registry"}
+        
+        print(f"[*] Executing WASM agent: {agent_name}")
+        result = self.wasm_executor.execute(str(wasm_path), input_data)
+        
+        return {
+            "success": result.success,
+            "output": result.output,
+            "error": result.error,
+            "execution_time_ms": result.execution_time_ms
+        }
 
     def _call_llm(self, prompt):
         """Helper to call Gemini for internal controller logic."""
@@ -217,10 +263,23 @@ class SubAgentController:
         # --- NEW: Search for existing agents before building ---
         existing_agent = self._search_existing_agents(refined_task, agent_type, required_apis)
         if existing_agent:
-            print(f"[*] Using existing agent: {existing_agent['reference']} ({existing_agent['runtime']})")
-            # TODO: Execute existing agent instead of creating new one
-            # For now, just return the reference for the caller to handle
-            return existing_agent['reference']
+            runtime = existing_agent['runtime']
+            print(f"[*] Found existing agent: {existing_agent['reference']} ({runtime})")
+            
+            if runtime == "wasm":
+                # Execute WASM agent directly
+                # Extract the input from the refined task
+                result = self.execute_wasm_agent(existing_agent['name'], refined_task)
+                if result['success']:
+                    print(f"[*] WASM agent completed in {result['execution_time_ms']:.0f}ms")
+                    return result['output']
+                else:
+                    print(f"[!] WASM execution failed: {result['error']}")
+                    print("    -> Falling back to building new agent...")
+                    # Fall through to build new agent
+            else:
+                # K8s agent - return reference for caller to execute via Docker
+                return existing_agent['reference']
         
         # --- Memory: Start tracking task ---
         if self.memory:
