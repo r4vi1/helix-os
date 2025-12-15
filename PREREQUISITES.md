@@ -31,11 +31,15 @@ A comprehensive guide to running HelixOS on Windows, Linux, and macOS.
 
 ### Required Software
 
-- **Python 3.10+** - Core runtime
-- **Docker** - Container runtime for sub-agents
-- **Go 1.21+** - Sub-agent compilation
-- **Ollama** - Local LLM inference (optional but recommended)
-- **Git** - Version control
+| Software | Purpose | Required? |
+|----------|---------|--------|
+| **Python 3.10+** | Core runtime | Yes |
+| **Docker** | Container runtime for K8s agents | Yes |
+| **Go 1.21+** | Sub-agent compilation | Yes |
+| **wasmtime** | Local WASM execution | For WASM agents |
+| **NATS** | Browser worker messaging | For browser WASM |
+| **Ollama** | Local LLM inference | Recommended |
+| **Git** | Version control | Yes |
 
 ---
 
@@ -78,7 +82,19 @@ pip install -r mvp/requirements.txt
 pip install sentence-transformers keyring
 ```
 
-#### 4. Start Services
+#### 4. Install WASM Runtime (for hybrid agents)
+```bash
+# wasmtime - for local WASM execution
+curl https://wasmtime.dev/install.sh -sSf | bash
+source ~/.bashrc  # or restart terminal
+
+# NATS - for browser worker communication (optional)
+brew install nats-server
+# OR run via Docker:
+# docker run -p 4222:4222 -p 8222:8222 nats:latest
+```
+
+#### 5. Start Services
 ```bash
 # Start Docker (if using Docker Desktop, open the app)
 # OR for OrbStack:
@@ -167,6 +183,17 @@ python3 -m venv venv
 source venv/bin/activate
 pip install -r mvp/requirements.txt
 pip install sentence-transformers keyring
+```
+
+#### 4. Install WASM Runtime
+```bash
+# wasmtime
+curl https://wasmtime.dev/install.sh -sSf | bash
+source ~/.bashrc
+
+# NATS (optional - for browser workers)
+sudo apt install -y nats-server
+# OR: docker run -p 4222:4222 nats:latest
 ```
 
 ---
@@ -357,11 +384,17 @@ docker run hello-world
 # Check Go
 go version
 
+# Check wasmtime (for WASM agents)
+wasmtime --version
+
 # Check Ollama
 ollama list
 
 # Run HelixOS memory tests
 python memory/tests/test_memory.py
+
+# Run WASM infrastructure tests
+python tests/test_wasm_manual.py
 
 # Run MVP (requires microphone)
 python mvp/mvp_runner.py
