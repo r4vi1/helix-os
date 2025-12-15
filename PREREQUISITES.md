@@ -102,7 +102,7 @@ orbctl start
 
 # Start Ollama and pull a model
 ollama serve &
-ollama pull gemma3:4b  # or deepseek-r1:8b
+ollama pull gemma3:4b  # or gemma3:4b
 ```
 
 ---

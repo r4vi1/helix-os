@@ -35,7 +35,7 @@ def select_model():
     """
     Selects the best available model directly.
     1. HELIX_MODEL env var
-    2. deepseek-r1:8b (Preferred)
+    2. gemma3:4b (Preferred)
     3. llama3
     4. mistral
     5. First available model
@@ -47,8 +47,8 @@ def select_model():
     installed_models = get_installed_models()
     
     if not installed_models:
-        print("[!] No models detected in Ollama. Please run 'ollama pull deepseek-r1:8b'")
-        return "deepseek-r1:8b" # Fallback default
+        print("[!] No models detected in Ollama. Please run 'ollama pull gemma3:4b'")
+        return "gemma3:4b" # Fallback default
 
     # Preference list
     preferences = ["gemma3:4b", "deepseek-r1:8b", "llama3:latest", "llama3", "mistral:latest", "mistral"]
