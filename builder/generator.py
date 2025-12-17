@@ -61,8 +61,8 @@ class CodeGenerator:
             - Input: A complex query.
             - Logic: Forward query to Gemini and return response.
             - CRITICAL: The API endpoint MUST be exactly: 
-              https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=<API_KEY>
-            - Do NOT use "gemini-pro" or any other model name. Use "gemini-2.5-flash" ONLY.
+              https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=<API_KEY>
+            - Do NOT use "gemini-pro" or any other model name. Use "gemini-3-flash-preview" ONLY.
             """
         
         apis_str = ", ".join(required_apis)
@@ -179,9 +179,9 @@ func main() {
             payload = {"contents": [{"parts": [{"text": payload_or_prompt}]}]}
         else:
             payload = payload_or_prompt
-        # Only use gemini-2.5-flash - other models not supported by current API key
+        # Gemini model for code generation - change this when newer models are available
         models = [
-            "gemini-2.5-flash"
+            "gemini-3-flash-preview"  # Update this to use newer models
         ]
         
         if self.api_key:

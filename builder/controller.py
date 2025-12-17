@@ -350,7 +350,7 @@ class SubAgentController:
                     "helix.task": refined_task,
                     "helix.created": str(time.time()),
                     "helix.capabilities": f"{agent_type}, net-enabled",
-                    "helix.author": "gemini-2.5-flash", 
+                    "helix.author": "gemini-3-flash-preview", 
                     "helix.type": agent_type
                 }
 
